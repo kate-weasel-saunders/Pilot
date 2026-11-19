@@ -110,7 +110,11 @@ export interface RefreshResult {
   sources: { id: string; ok: boolean; error?: string }[];
 }
 
-export async function refresh(deps: Deps, userId: string): Promise<RefreshResult> {
+/**
+ * Re-import all enabled calendars. `prefetched` supplies events already read
+ * for some calendars (e.g. the one just added), so they aren't fetched twice.
+ */
+export async function refresh(deps: Deps, userId: string, prefetched = new Map<string, ImportedEvent[]>()): Promise<RefreshResult> {
   const now = deps.now();
   const window = importWindow(now);
   const sources = (await deps.listSources()).filter((s) => s.enabled);
@@ -118,6 +122,8 @@ export async function refresh(deps: Deps, userId: string): Promise<RefreshResult
 
   const results = await Promise.all(
     sources.map(async (s) => {
+      const ready = prefetched.get(s.id);
+      if (ready) return { id: s.id, ok: true as const, events: ready };
       const url = urls.get(s.id);
       if (!url) return { id: s.id, ok: false as const, error: 'No link saved for this calendar.' };
       try {
@@ -167,8 +173,8 @@ export async function handle(deps: Deps, body: unknown): Promise<unknown> {
       const name = cleanName(b.name);
       const kind = cleanKind(b.default_kind);
       const url = validateFeedUrl(b.feed_url);
-      // Check the link works before saving anything.
-      await loadFeed(deps, url, 'probe', importWindow(deps.now()));
+      // Check the link works before saving anything (and keep what we read).
+      const probe = await loadFeed(deps, url, 'probe', importWindow(deps.now()));
       const source = await deps.createSource(name, kind);
       try {
         await deps.setFeedUrl(userId, source.id, url);
@@ -176,15 +182,16 @@ export async function handle(deps: Deps, body: unknown): Promise<unknown> {
         await deps.deleteSource(source.id);
         throw e;
       }
-      return { source, refresh: await refresh(deps, userId) };
+      const events = probe.map((e) => ({ ...e, source_ids: [source.id] }));
+      return { source, refresh: await refresh(deps, userId, new Map([[source.id, events]])) };
     }
     case 'set_feed': {
       const url = validateFeedUrl(b.feed_url);
       const id = typeof b.source_id === 'string' ? b.source_id : '';
       if (!(await deps.listSources()).some((s) => s.id === id)) throw new UserError('Calendar not found.', 404);
-      await loadFeed(deps, url, id, importWindow(deps.now()));
+      const events = await loadFeed(deps, url, id, importWindow(deps.now()));
       await deps.setFeedUrl(userId, id, url);
-      return { refresh: await refresh(deps, userId) };
+      return { refresh: await refresh(deps, userId, new Map([[id, events]])) };
     }
     case 'refresh':
       return { refresh: await refresh(deps, userId) };

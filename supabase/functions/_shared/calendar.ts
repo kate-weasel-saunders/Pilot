@@ -87,9 +87,89 @@ function inWindow(ev: ImportedEvent, w: Window): boolean {
   return Date.parse(ev.ends_at!) >= w.from.getTime() && Date.parse(ev.starts_at!) <= w.to.getTime();
 }
 
+// ---------------------------------------------------------------------------
+// Performance. Supabase gives a function ~2 s of CPU per request. Building
+// ical.js objects is the expensive part (~0.3 ms per event), and a calendar
+// with years of history has thousands of events nowhere near the window. So:
+//   1. skim the raw parsed data (jCal) and drop one-off events whose dates are
+//      clearly outside the window before building any objects;
+//   2. fast-forward old open-ended DAILY/WEEKLY series to just before the
+//      window instead of stepping through years of past occurrences.
+// ---------------------------------------------------------------------------
+
+type JCalProp = [string, Record<string, unknown>, string, ...unknown[]];
+type JCalComp = [string, JCalProp[], JCalComp[]];
+
+const DAY = 86400000;
+/** Generous margins: wall-clock dates vs UTC, and events spanning the window edge. */
+const SKIM_MARGIN_DAYS = 3;
+const LONG_EVENT_DAYS = 60;
+
+function hasProp(c: JCalComp, name: string): boolean {
+  return c[1].some((x) => x[0] === name);
+}
+
+/** A property's raw text value (dates are "YYYY-MM-DD" or "YYYY-MM-DDTHH:MM:SS[Z]"). */
+function propValue(c: JCalComp, name: string): string | undefined {
+  const v = c[1].find((x) => x[0] === name)?.[3];
+  return typeof v === 'string' ? v : undefined;
+}
+
+/** Cheap pre-filter on raw jCal: keep everything that might touch the window. */
+export function skim(cal: JCalComp, w: Window): JCalComp {
+  const lo = isoDate(new Date(w.from.getTime() - SKIM_MARGIN_DAYS * DAY));
+  const loLong = isoDate(new Date(w.from.getTime() - LONG_EVENT_DAYS * DAY));
+  const hi = isoDate(new Date(w.to.getTime() + SKIM_MARGIN_DAYS * DAY));
+  const keep = cal[2].filter((c) => {
+    if (c[0] !== 'vevent') return true;
+    if (hasProp(c, 'rrule') || hasProp(c, 'rdate')) return true; // series: handled later
+    const start = propValue(c, 'dtstart')?.slice(0, 10);
+    if (!start) return true; // unusual; let the full parser decide
+    const end = propValue(c, 'dtend')?.slice(0, 10);
+    const near = start <= hi && (end !== undefined ? end >= lo : start >= (hasProp(c, 'duration') ? loLong : lo));
+    const rid = propValue(c, 'recurrence-id')?.slice(0, 10);
+    return near || (rid !== undefined && rid >= lo && rid <= hi); // a moved occurrence whose original slot is in the window
+  });
+  return [cal[0], cal[1], keep];
+}
+
+/**
+ * Move DTSTART (and DTEND) of an old open-ended DAILY/WEEKLY series forward
+ * by whole periods. Same time of day, same weekday, same phase for INTERVAL,
+ * so every occurrence near the window (and its RECURRENCE-ID) is unchanged.
+ * Series with COUNT, RDATE or several RRULEs are left alone.
+ */
+function fastForward(master: ICalComponent, w: Window): void {
+  const rrules = master.getAllProperties('rrule');
+  if (rrules.length !== 1 || master.hasProperty('rdate')) return;
+  const rule = rrules[0]!.getFirstValue() as InstanceType<typeof ICAL.Recur>;
+  if (rule.count || (rule.freq !== 'DAILY' && rule.freq !== 'WEEKLY')) return;
+  const startProp = master.getFirstProperty('dtstart');
+  if (!startProp) return;
+  const start = startProp.getFirstValue() as ICalTime;
+  const periodDays = (rule.interval || 1) * (rule.freq === 'WEEKLY' ? 7 : 1);
+  const target = w.from.getTime() - 14 * DAY; // well before the window
+  const periods = Math.floor((target - start.toJSDate().getTime()) / (periodDays * DAY));
+  if (periods < 2) return;
+  const shiftDays = (periods - 1) * periodDays;
+  const newStart = start.clone();
+  newStart.adjust(shiftDays, 0, 0, 0);
+  startProp.setValue(newStart);
+  const endProp = master.getFirstProperty('dtend');
+  if (endProp) {
+    const end = (endProp.getFirstValue() as ICalTime).clone();
+    end.adjust(shiftDays, 0, 0, 0);
+    endProp.setValue(end);
+  }
+}
+
 /** Parse one feed into the occurrences that overlap `w`. Throws on unparseable input. */
 export function parseFeed(ics: string, sourceId: string, w: Window): ImportedEvent[] {
-  const root = new ICAL.Component(ICAL.parse(ics));
+  let parsed = ICAL.parse(ics) as unknown as JCalComp | JCalComp[];
+  if (Array.isArray(parsed[0])) parsed = (parsed as JCalComp[])[0]!; // several VCALENDARs: use the first
+  const cal = parsed as JCalComp;
+  if (cal[0] !== 'vcalendar') throw new Error('Not a calendar');
+  const root = new ICAL.Component(skim(cal, w));
 
   for (const tz of root.getAllSubcomponents('vtimezone')) {
     try {
@@ -113,6 +193,7 @@ export function parseFeed(ics: string, sourceId: string, w: Window): ImportedEve
   const toTime = ICAL.Time.fromJSDate(w.to, true);
 
   for (const [uid, master] of masters) {
+    if (master.hasProperty('rrule')) fastForward(master, w);
     const event = new ICAL.Event(master);
     const movedIds = new Set<string>(); // occurrences overridden by a RECURRENCE-ID component
     for (const ex of exceptions.get(uid) ?? []) {

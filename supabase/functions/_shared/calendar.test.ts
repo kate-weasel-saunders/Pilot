@@ -87,6 +87,34 @@ describe('long-running repeating events', () => {
   });
 });
 
+describe('fast-forwarding old series gives identical results', () => {
+  const cal = (body: string) => `BEGIN:VCALENDAR\r\nVERSION:2.0\r\n${fixture('google.ics').match(/BEGIN:VTIMEZONE[\s\S]*?END:VTIMEZONE\r?\n/)![0]}${body}END:VCALENDAR\r\n`;
+  it('fortnightly since 2018 keeps its phase, local time across DST, exclusions and moved occurrences', () => {
+    const got = parseFeed(cal([
+      'BEGIN:VEVENT', 'UID:fortnight', 'DTSTART;TZID=Europe/London:20180706T083000', 'DTEND;TZID=Europe/London:20180706T093000',
+      'RRULE:FREQ=WEEKLY;INTERVAL=2', 'EXDATE;TZID=Europe/London:20261127T083000', 'SUMMARY:Fortnightly', 'END:VEVENT',
+      'BEGIN:VEVENT', 'UID:fortnight', 'RECURRENCE-ID;TZID=Europe/London:20261113T083000', 'DTSTART;TZID=Europe/London:20261114T110000',
+      'DTEND;TZID=Europe/London:20261114T120000', 'SUMMARY:Fortnightly (moved)', 'END:VEVENT', '',
+    ].join('\r\n')), 'a', W);
+    // Expected by plain date arithmetic: every 14 days from Fri 6 Jul 2018, 08:30 London.
+    const expected: string[] = [];
+    for (let d = Date.UTC(2018, 6, 6); d <= W.to.getTime(); d += 14 * 86400000) {
+      const iso = new Date(d).toISOString().slice(0, 10);
+      if (iso >= '2026-11-12' && iso !== '2026-11-27' && iso !== '2026-11-13') expected.push(`${iso}T08:30:00.000Z`); // GMT in Nov
+    }
+    expect(got.filter((e) => e.title === 'Fortnightly').map((e) => e.starts_at)).toEqual(expected);
+    expect(got.find((e) => e.title === 'Fortnightly (moved)')).toMatchObject({ starts_at: '2026-11-14T11:00:00.000Z', event_key: 'fortnight|2026-11-13T08:30:00' });
+  });
+  it('keeps one-off events that span into the window', () => {
+    const got = parseFeed(cal(['BEGIN:VEVENT', 'UID:trip', 'DTSTART;VALUE=DATE:20261101', 'DTEND;VALUE=DATE:20261115', 'SUMMARY:Long trip', 'END:VEVENT', ''].join('\r\n')), 'a', W);
+    expect(got.map((e) => e.title)).toEqual(['Long trip']);
+  });
+  it('drops one-off events far from the window', () => {
+    const got = parseFeed(cal(['BEGIN:VEVENT', 'UID:old', 'DTSTART:20170101T090000Z', 'DTEND:20170101T100000Z', 'SUMMARY:Old', 'END:VEVENT', ''].join('\r\n')), 'a', W);
+    expect(got).toEqual([]);
+  });
+});
+
 describe('robustness', () => {
   it('rejects input that isn’t a calendar', () => {
     expect(() => parseFeed('<html>Sign in</html>', 'x', W)).toThrow();

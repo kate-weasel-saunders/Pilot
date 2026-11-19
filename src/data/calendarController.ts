@@ -17,18 +17,32 @@ async function call<T>(body: Record<string, unknown>): Promise<T> {
   if (!supabase) throw new CalendarError('Not configured.');
   if (!navigator.onLine) throw new CalendarError('You’re offline. Calendars need a connection.');
   const { data, error } = await supabase.functions.invoke('calendar', { body });
-  if (error) {
-    let message = 'Couldn’t reach Pilot’s server. Try again in a moment.';
-    try {
-      const res = (error as { context?: Response }).context;
-      const payload = res && typeof res.json === 'function' ? await res.json() : null;
-      if (payload?.error) message = payload.error;
-    } catch {
-      // keep the generic message
-    }
-    throw new CalendarError(message);
-  }
+  if (error) throw new CalendarError(await describeFunctionError(error));
   return data as T;
+}
+
+/** Turn a supabase-js functions error into something specific enough to act on. */
+async function describeFunctionError(error: unknown): Promise<string> {
+  const name = (error as Error)?.name ?? '';
+  const res = (error as { context?: unknown }).context;
+  if (res instanceof Response) {
+    let payload: { error?: string } | null = null;
+    try {
+      payload = await res.clone().json();
+    } catch {
+      // not JSON
+    }
+    if (payload?.error) return payload.error;
+    if (res.status === 546 || res.status === 504) return `The calendar import took too long and was stopped by the server (HTTP ${res.status}). Try again; if it keeps happening, the calendar may be very large.`;
+    return `Pilot’s server returned an unexpected response (HTTP ${res.status}).`;
+  }
+  if (name === 'FunctionsFetchError') {
+    const cause = String((error as { context?: { name?: string } }).context?.name ?? '');
+    return cause === 'TimeoutError' || cause === 'AbortError'
+      ? 'The calendar import took longer than a minute, so the app stopped waiting. Try again in a moment.'
+      : 'Couldn’t reach Pilot’s server. Check your connection and try again.';
+  }
+  return `Couldn’t reach Pilot’s server (${name || 'unknown error'}). Try again in a moment.`;
 }
 
 export interface RefreshSummary {

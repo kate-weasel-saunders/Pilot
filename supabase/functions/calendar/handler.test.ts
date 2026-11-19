@@ -85,6 +85,12 @@ describe('handle', () => {
     expect(state.sources[0]!.last_error).toBeNull();
   });
 
+  it('fetches a newly added calendar only once', async () => {
+    const { state, deps } = world({ [GOOGLE]: fixture('google.ics') });
+    await handle(deps, { action: 'add', name: 'Home', feed_url: GOOGLE });
+    expect(state.fetched).toEqual([GOOGLE]);
+  });
+
   it('refuses a link that does not return a calendar, saving nothing', async () => {
     const { state, deps } = world({ [GOOGLE]: '<html>Sign in</html>' });
     await expect(handle(deps, { action: 'add', name: 'X', feed_url: GOOGLE })).rejects.toThrow(/didn’t return a calendar/);
