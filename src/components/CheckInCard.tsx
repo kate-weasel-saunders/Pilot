@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import type { CheckIn, Period } from '../data/types';
 import { formatTime, deviceTimeZone } from '../lib/time';
 import { levelLabel, MEASURES, TAG_GROUPS } from '../lib/vocabulary';
+import { relationLabel, timeLabel } from '../lib/calendar';
 import { periodsFor } from '../lib/periods';
 import { removeCheckIn } from '../data/actions';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -45,6 +46,25 @@ export function CheckInCard({ c, periods, pending }: { c: CheckIn; periods: Peri
                 <dd>{c[g.column].join(', ')}</dd>
               </div>
             ))}
+            {(c.events ?? []).length > 0 && (
+              <div>
+                <dt>Calendar</dt>
+                <dd>
+                  <ul className="plain-list">
+                    {c.events.map((e) => (
+                      <li key={e.key}>
+                        {e.title ?? 'Untitled event'}
+                        <span className="faint">
+                          {' '}
+                          · {e.all_day ? timeLabel(e, c.timezone) : `${timeLabel(e, c.timezone)}, ${relationLabel(e)}`}
+                          {e.kind && ` · ${e.kind}`}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </dd>
+              </div>
+            )}
             {c.preceding && (
               <div>
                 <dt>Just before</dt>

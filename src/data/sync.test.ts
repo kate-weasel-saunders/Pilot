@@ -3,13 +3,15 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { PilotDB } from './db';
 import { deleteRow, newId, saveRow } from './repo';
 import { pull, push, type Remote } from './sync';
-import type { CheckIn, SyncedTable } from './types';
+import type { CheckIn, PulledTable } from './types';
 
 type Row = { id: string; updated_at: string } & Record<string, unknown>;
 
 /** In-memory stand-in for Supabase. `offline` makes every call fail. */
 class FakeRemote implements Remote {
-  tables: Record<SyncedTable, Map<string, Row>> = { check_ins: new Map(), periods: new Map(), tags: new Map() };
+  tables: Record<PulledTable, Map<string, Row>> = {
+    check_ins: new Map(), periods: new Map(), tags: new Map(), calendar_sources: new Map(), event_series: new Map(), calendar_events: new Map(),
+  };
   offline = false;
   clock = Date.parse('2026-11-18T10:00:00Z');
   beforeUpsert?: () => Promise<void>;
@@ -20,7 +22,7 @@ class FakeRemote implements Remote {
   private check() {
     if (this.offline) throw new TypeError('Failed to fetch');
   }
-  async upsert(table: SyncedTable, rows: Row[]) {
+  async upsert(table: PulledTable, rows: Row[]) {
     this.check();
     await this.beforeUpsert?.();
     return rows.map((r) => {
@@ -29,15 +31,15 @@ class FakeRemote implements Remote {
       return saved;
     });
   }
-  async remove(table: SyncedTable, ids: string[]) {
+  async remove(table: PulledTable, ids: string[]) {
     this.check();
     ids.forEach((id) => this.tables[table].delete(id));
   }
-  async pullSince(table: SyncedTable, cursor: string | null) {
+  async pullSince(table: PulledTable, cursor: string | null) {
     this.check();
     return [...this.tables[table].values()].filter((r) => !cursor || r.updated_at > cursor);
   }
-  async listIds(table: SyncedTable) {
+  async listIds(table: PulledTable) {
     this.check();
     return [...this.tables[table].keys()];
   }
@@ -46,7 +48,7 @@ class FakeRemote implements Remote {
 const checkIn = (over: Partial<CheckIn> = {}): CheckIn => ({
   id: newId(), observed_at: '2026-11-18T09:00:00.000Z', timezone: 'Europe/London', local_date: '2026-11-18',
   local_time: '09:00:00', mood: 3, energy: 2, anxiety: null, pressure: 4, body_tags: ['Heavy'], context_tags: ['Work'],
-  need_tags: [], thought: 'Can’t face this meeting.', preceding: null, extra: {}, created_at: '', updated_at: '', ...over,
+  need_tags: [], thought: 'Can’t face this meeting.', preceding: null, events: [], extra: {}, created_at: '', updated_at: '', ...over,
 });
 
 let d: PilotDB;

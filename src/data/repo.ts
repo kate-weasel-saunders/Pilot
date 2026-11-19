@@ -1,5 +1,5 @@
 import type { PilotDB } from './db';
-import type { CheckIn, OutboxEntry, Period, SyncedTable, Tag } from './types';
+import type { OutboxEntry, RowTypes, SyncedTable } from './types';
 
 /**
  * Local writes. Every change lands in IndexedDB and the outbox in a single
@@ -7,7 +7,7 @@ import type { CheckIn, OutboxEntry, Period, SyncedTable, Tag } from './types';
  * Pushing to the server happens separately (see sync.ts).
  */
 
-type RowFor<T extends SyncedTable> = T extends 'check_ins' ? CheckIn : T extends 'periods' ? Period : Tag;
+type RowFor<T extends SyncedTable> = RowTypes[T];
 
 let lastQueued = 0;
 /** Strictly increasing ms timestamp, so re-queues are always detectable. */

@@ -23,12 +23,18 @@ export function History() {
   const activeFilters = ['from', 'to', 'period', 'tag'].filter((k) => params.get(k)).length;
   const [showFilters, setShowFilters] = useState(activeFilters > 0);
 
-  const setParam = (k: string, v: string) => {
-    const next = new URLSearchParams(params);
-    if (v) next.set(k, v);
-    else next.delete(k);
-    setParams(next, { replace: true });
-  };
+  // Functional update: rapid changes (e.g. clear search, then pick a tag) must
+  // build on the latest filters, not on the ones from the previous render.
+  const setParam = (k: string, v: string) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (v) next.set(k, v);
+        else next.delete(k);
+        return next;
+      },
+      { replace: true },
+    );
 
   const results = useMemo(() => filterCheckIns(checkIns ?? [], filter, periods), [checkIns, periods, params]); // eslint-disable-line react-hooks/exhaustive-deps
   const tags = useMemo(() => usedTags(checkIns ?? []), [checkIns]);

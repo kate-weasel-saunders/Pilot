@@ -25,7 +25,7 @@ export function filterCheckIns(list: CheckIn[], f: HistoryFilter, periods: Perio
     if (f.periodId && (!period || !containsWallClock(period, c.local_date, c.local_time))) return false;
     if (tag && !allTags(c).some((t) => norm(t) === tag)) return false;
     if (q) {
-      const hay = norm([c.thought ?? '', c.preceding ?? '', ...allTags(c)].join('\n'));
+      const hay = norm([c.thought ?? '', c.preceding ?? '', ...allTags(c), ...(c.events ?? []).map((e) => `${e.title ?? ''} ${e.kind ?? ''}`)].join('\n'));
       if (!hay.includes(q)) return false;
     }
     return true;

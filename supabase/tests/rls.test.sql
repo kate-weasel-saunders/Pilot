@@ -136,6 +136,69 @@ end $$;
 commit;
 \echo 'ok 9 - updated_at is server-controlled'
 
+-- 11. Calendar tables: own rows only.
+insert into public.calendar_sources (id, user_id, name) values ('33333333-3333-4333-8333-333333333333', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Home');
+insert into public.calendar_feed_secrets (source_id, user_id, feed_url) values ('33333333-3333-4333-8333-333333333333', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'https://calendar.google.com/calendar/ical/x/private-secret/basic.ics');
+insert into public.calendar_events (user_id, event_key, series_key, title, starts_at, ends_at)
+  values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'dentist|2026-11-20T10:00:00Z', 'dentist', 'Dentist', '2026-11-20T10:00:00Z', '2026-11-20T10:30:00Z');
+insert into public.event_series (user_id, series_key, kind) values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'dentist', 'Appointment');
+begin;
+select pg_temp.as_user('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') \gset
+do $$ begin
+  assert (select count(*) from public.calendar_sources) = 1, 'A sees own source';
+  assert (select count(*) from public.calendar_events) = 1, 'A sees own events';
+  assert (select count(*) from public.event_series) = 1, 'A sees own series';
+end $$;
+commit;
+begin;
+select pg_temp.as_user('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb') \gset
+do $$
+declare n int;
+begin
+  assert (select count(*) from public.calendar_sources) = 0, 'B must not see A''s sources';
+  assert (select count(*) from public.calendar_events) = 0, 'B must not see A''s events';
+  assert (select count(*) from public.event_series) = 0, 'B must not see A''s series';
+  delete from public.calendar_events;
+  get diagnostics n = row_count; assert n = 0, 'B must not delete A''s events';
+end $$;
+commit;
+\echo 'ok 11 - calendar tables are own-rows-only'
+
+-- 12. Secret feed links are invisible and unwritable from the browser, even for their owner.
+begin;
+select pg_temp.as_user('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') \gset
+do $$ begin
+  begin
+    perform count(*) from public.calendar_feed_secrets;
+    raise exception 'owner could read feed secrets';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.calendar_feed_secrets (source_id, user_id, feed_url) values ('33333333-3333-4333-8333-333333333333', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'https://evil.example.com/x.ics');
+    raise exception 'owner could write feed secrets';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+commit;
+\echo 'ok 12 - feed secrets are server-only'
+
+-- 13. Check-in event snapshots must be arrays; deleting a source removes its secret.
+begin;
+select pg_temp.as_user('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') \gset
+do $$ begin
+  begin
+    update public.check_ins set events = '{"not":"array"}' where id = '11111111-1111-4111-8111-111111111111';
+    raise exception 'non-array events accepted';
+  exception when check_violation then null;
+  end;
+  delete from public.calendar_sources where id = '33333333-3333-4333-8333-333333333333';
+end $$;
+commit;
+do $$ begin
+  assert (select count(*) from public.calendar_feed_secrets) = 0, 'secret should cascade-delete with its source';
+end $$;
+\echo 'ok 13 - snapshot shape enforced; secrets removed with their calendar'
+
 -- 10. Every table in public has RLS enabled (guards future migrations).
 do $$ begin
   assert not exists (

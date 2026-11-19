@@ -359,3 +359,152 @@ details.more[open] > summary::before {
   border-color: var(--danger);
   color: #fff;
 }
+
+/* Calendar events in Check In */
+.events-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-1);
+  width: 100%;
+  min-height: var(--touch);
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+
+.events-summary .section-title {
+  margin-bottom: 0;
+}
+
+.events-line {
+  font-family: var(--font-reflective);
+  font-size: var(--text-lg);
+}
+
+.events-list ul,
+.plain-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.events-sub {
+  margin-top: var(--s-4);
+}
+
+.event-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--s-2);
+  border-bottom: var(--hairline) solid var(--rule);
+}
+
+.event-check {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: 52px;
+  cursor: pointer;
+}
+
+.event-check input,
+.hide-toggle input,
+.source-edit input[type='checkbox'] {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--accent);
+  flex: none;
+}
+
+.event-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.event-title {
+  overflow-wrap: anywhere;
+}
+
+.event-meta {
+  font-size: var(--text-sm);
+  color: var(--ink-faint);
+}
+
+.event-kind {
+  min-height: 36px;
+  padding: 0 var(--s-3);
+  border-radius: var(--radius-pill);
+  border: var(--hairline) dashed var(--rule);
+  background: none;
+  font-size: var(--text-sm);
+  color: var(--ink-faint);
+}
+
+.event-kind.set {
+  border-style: solid;
+  color: var(--ink-soft);
+}
+
+.kind-chooser {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: 0 0 var(--s-3);
+}
+
+.hide-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: var(--touch);
+}
+
+/* Calendars screen */
+.field-label {
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  margin-bottom: var(--s-2);
+}
+
+.source {
+  border-bottom: var(--hairline) solid var(--rule);
+}
+
+.source-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: var(--s-3) 0;
+  background: none;
+  border: 0;
+  text-align: left;
+  min-height: var(--touch);
+}
+
+.source-name {
+  font-family: var(--font-reflective);
+  font-size: var(--text-lg);
+}
+
+.source-status {
+  font-size: var(--text-sm);
+  color: var(--ink-faint);
+}
+
+.source-status.warn {
+  color: var(--danger);
+}
+
+.source-edit {
+  padding-bottom: var(--s-4);
+}
+
+.help p + p {
+  margin-top: var(--s-2);
+}

@@ -10,6 +10,7 @@ import { Patterns } from './screens/Patterns';
 import { Periods } from './screens/Periods';
 import { PeriodForm } from './screens/PeriodForm';
 import { Settings } from './screens/Settings';
+import { Calendars } from './screens/Calendars';
 
 function Gate() {
   const { session, loading } = useAuth();
@@ -28,6 +29,7 @@ function Gate() {
         <Route path="periods/new" element={<PeriodForm />} />
         <Route path="periods/:id" element={<PeriodForm />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="settings/calendars" element={<Calendars />} />
         <Route path="*" element={<Today />} />
       </Route>
     </Routes>

@@ -9,6 +9,8 @@ iPhone / browser (PWA)
      ▼
   sync engine (src/data/sync.ts) ── supabase-js (publishable key + user JWT) ──▶ Supabase Postgres (RLS)
                                                                                  ▲
+  Settings → Calendars ─▶ Edge Function `calendar` ─▶ Google / Outlook ICS feeds
+                           (user JWT; service role only for calendar_feed_secrets)
   (later) "Analyse" ─▶ Supabase Edge Function (user JWT, RLS applies) ─▶ Anthropic API
 ```
 
@@ -41,17 +43,28 @@ iPhone / browser (PWA)
 
 **Service worker caches only the app shell.** Supabase responses are never cached by it. Personal data lives in IndexedDB (cleared on sign-out) and Postgres.
 
+**Calendars: secret ICS links, not OAuth.** No Google Cloud project, no consent screen, no weekly re-authorisation, and Outlook's published calendars work the same way.
+- **Server-side import:** the `calendar` Edge Function fetches feeds server-side (browsers can't read them cross-origin anyway). Hosts are allowlisted (prevents SSRF), feeds are capped at 5 MB and 15 s, and recurring events are expanded with ical.js using the feed's own VTIMEZONEs, so Outlook's Windows zone names work.
+- **Rolling window:** events are imported for a week back and two weeks ahead.
+- **Duplicates:** merged across calendars by UID, falling back to title + time.
+- **Safe deletion:** a failed fetch never deletes that calendar's events.
+- **Snapshots:** each check-in stores a snapshot of its attached events (`check_ins.events`) with their relation in time (upcoming/now/recent/all-day/earlier/later and minutes). Analysis sees what you were facing then, even if the calendar changes later.
+- **Default rule** (`src/lib/calendar.ts`): pre-tick timed events starting within 12 h, happening now, or ended within 3 h, plus all-day events covering the date. Same-day others are offered unticked. A per-series "don't tick automatically" exists, but nothing is ever unselectable.
+- **Kinds** resolve per series (`event_series`), then the calendar's default kind. Custom kinds use the shared `tags` vocabulary (kind `event`).
+
 ## Security model
 
 - RLS enabled **and forced** on every table. The policies are select/insert/update/delete `to authenticated` where `(select auth.uid()) = user_id`. The `anon` role is revoked. Test 10 in `supabase/tests/rls.test.sql` fails if any future table in `public` lacks RLS.
 - `updated_at` is set by a trigger from the server clock, since the sync cursor depends on it.
-- Only the publishable key ships to the browser. AI will run in an Edge Function that uses the caller's JWT (so RLS still applies) and holds `ANTHROPIC_API_KEY` as a function secret. No service-role key is used anywhere.
+- Only the publishable key ships to the browser. Edge Functions act as the caller (their JWT), so RLS applies.
+- **One deliberate service-role use:** inside the `calendar` function, solely for `calendar_feed_secrets`. That table has RLS forced and no policies or grants for browser roles (tested), and every query is filtered by the verified user id.
+- AI will hold `ANTHROPIC_API_KEY` as a function secret.
 - No analytics, no third-party requests besides Supabase, and a strict CSP (`vercel.json`). Errors shown in the UI never include entry text, and the sync engine doesn't log row contents.
 
 ## Planned next
 
 1. **Trends** (Patterns tab): the four measures over 7/30/90 days or custom, as quiet small multiples. Tap a point to see the check-in.
-2. **Analysis data layer**: a pure, tested transform from rows to a compact, explicit text representation (timestamp, weekday, part of day, periods, measures, tags, text, previous-check-in gap).
+2. **Analysis data layer**: a pure, tested transform from rows to a compact, explicit text representation (timestamp, weekday, part of day, periods, measures, tags, text, attached calendar events with timing and kind, previous-check-in gap). Include an option to send event kinds instead of titles.
 3. **Analysis system prompt** as its own versioned module: evidence first, observation vs. hypothesis vs. insufficient evidence, counts and exceptions, alternative explanations, deliberate counter-evidence, no diagnosis, no coaching.
 4. **Edge Function `analyse`**: deliberate, user-triggered, `claude-opus-5-5`, results saved to `analyses`.
 5. Ask My Data, period comparison, experiments, delete-all-data.

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getMeta, setMeta, type PilotDB } from './db';
-import type { SyncedTable } from './types';
+import type { PulledTable, SyncedTable } from './types';
 
 /**
  * Deliberately simple sync for a single person on a few devices:
@@ -15,15 +15,17 @@ import type { SyncedTable } from './types';
  * Conflicts: last write to reach the server wins. Acceptable for one user.
  */
 
-export const SYNCED_TABLES: SyncedTable[] = ['check_ins', 'periods', 'tags'];
+export const SYNCED_TABLES: SyncedTable[] = ['check_ins', 'periods', 'tags', 'calendar_sources', 'event_series'];
+/** Pulled from the server: everything we push, plus server-written calendar events. */
+export const PULLED_TABLES: PulledTable[] = [...SYNCED_TABLES, 'calendar_events'];
 
 type Row = { id: string; updated_at: string } & Record<string, unknown>;
 
 export interface Remote {
   upsert(table: SyncedTable, rows: Row[]): Promise<Row[]>;
   remove(table: SyncedTable, ids: string[]): Promise<void>;
-  pullSince(table: SyncedTable, cursor: string | null): Promise<Row[]>;
-  listIds(table: SyncedTable): Promise<string[]>;
+  pullSince(table: PulledTable, cursor: string | null): Promise<Row[]>;
+  listIds(table: PulledTable): Promise<string[]>;
 }
 
 /** Overlap when pulling, to tolerate transactions committing out of order. */
@@ -69,7 +71,7 @@ export async function push(d: PilotDB, remote: Remote): Promise<number> {
 }
 
 export async function pull(d: PilotDB, remote: Remote): Promise<void> {
-  for (const table of SYNCED_TABLES) {
+  for (const table of PULLED_TABLES) {
     const t = d.table(table);
     const cursorKey = `cursor:${table}`;
     const cursor = await getMeta<string>(d, cursorKey);

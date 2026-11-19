@@ -5,7 +5,7 @@ import { filterCheckIns, usedTags } from './filter';
 const c = (o: Partial<CheckIn>): CheckIn => ({
   id: Math.random().toString(), observed_at: '', timezone: 'UTC', local_date: '2026-12-01', local_time: '10:00:00',
   mood: null, energy: null, anxiety: null, pressure: null, body_tags: [], context_tags: [], need_tags: [],
-  thought: null, preceding: null, extra: {}, created_at: '', updated_at: '', ...o,
+  thought: null, preceding: null, events: [], extra: {}, created_at: '', updated_at: '', ...o,
 });
 
 const list = [

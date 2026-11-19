@@ -22,11 +22,28 @@ const USER = { id: '6f1c2a3b-0000-4000-8000-000000000001', email: 'me@example.co
 const SHOTS = process.env.SCREENSHOTS ? path.join(__dirname, 'screenshots') : null;
 
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
-const exp = Math.floor(Date.now() / 1000) + 3600;
+// The browser clock is pinned to Friday 20 Nov 2026, 08:00 London (GMT), so
+// calendar timing is deterministic. The token must outlive that moment.
+const NOW = new Date('2026-11-20T08:00:00Z');
+const exp = Math.floor(Date.parse('2027-06-01T00:00:00Z') / 1000);
 const TOKEN = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: USER.id, exp, role: 'authenticated', aud: 'authenticated', email: USER.email })}.sig`;
 
 // ---- Fake Supabase -------------------------------------------------------
-const tables = { check_ins: new Map(), periods: new Map(), tags: new Map() };
+const tables = { check_ins: new Map(), periods: new Map(), tags: new Map(), calendar_sources: new Map(), calendar_events: new Map(), event_series: new Map() };
+
+/** Events the fake `calendar` function "imports": the dentist example. */
+function importedEvents(sourceId) {
+  const t = (h) => new Date(NOW.getTime() + h * 3600_000).toISOString();
+  const timed = (key, title, from, to) => ({ event_key: key, series_key: key.split('|')[0], title, all_day: false, starts_at: t(from), ends_at: t(to), start_date: null, end_date: null });
+  return [
+    timed('gym|1', 'Gym', -2, -1), // ended an hour ago → ticked
+    timed('dentist|1', 'Dentist', 2, 2.5), // in 2 hours → ticked
+    timed('dinner|1', 'Dinner with Sam', 11, 13), // in 11 hours → ticked
+    timed('film|1', 'Film night', 13, 15), // in 13 hours → offered, not ticked
+    timed('standup|0', 'Yesterday standup', -23, -22.5), // yesterday → not offered
+    { event_key: 'parents|1', series_key: 'parents', title: 'Neil’s parents visiting', all_day: true, starts_at: null, ends_at: null, start_date: '2026-11-20', end_date: '2026-11-22' },
+  ].map((e) => ({ ...e, id: crypto.randomUUID(), source_ids: [sourceId], created_at: NOW.toISOString(), updated_at: new Date((clock += 1000)).toISOString() }));
+}
 const requests = [];
 let clock = Date.now();
 
@@ -43,6 +60,21 @@ async function fakeSupabase(route) {
   }
   if (url.pathname === '/auth/v1/logout') return route.fulfill({ status: 204 });
   if (url.pathname.startsWith('/auth/v1/')) return json(200, {});
+
+  if (url.pathname === '/functions/v1/calendar') {
+    assert.equal(req.headers()['authorization'], `Bearer ${TOKEN}`, 'function calls must carry the user token');
+    const body = JSON.parse(req.postData() || '{}');
+    const summary = () => ({ events: tables.calendar_events.size, sources: [...tables.calendar_sources.keys()].map((id) => ({ id, ok: true })) });
+    if (body.action === 'add') {
+      if (!/^https:\/\/calendar\.google\.com\//.test(body.feed_url)) return json(400, { error: 'Pilot can import Google Calendar and Outlook/Microsoft 365 calendar links only.' });
+      const source = { id: crypto.randomUUID(), name: body.name, default_kind: body.default_kind, enabled: true, last_refreshed_at: NOW.toISOString(), last_error: null, created_at: NOW.toISOString(), updated_at: new Date((clock += 1000)).toISOString() };
+      tables.calendar_sources.set(source.id, source);
+      for (const e of importedEvents(source.id)) tables.calendar_events.set(e.id, e);
+      return json(200, { source, refresh: summary() });
+    }
+    if (body.action === 'refresh') return json(200, { refresh: summary() });
+    return json(400, { error: 'Unknown action.' });
+  }
 
   const m = url.pathname.match(/^\/rest\/v1\/(\w+)$/);
   if (!m || !tables[m[1]]) return json(404, { message: 'not found' });
@@ -104,6 +136,7 @@ const step = (s) => console.log(`✓ ${s}`);
   try {
     await waitFor(async () => fetch(BASE).then((r) => r.ok).catch(() => false), 'preview server', 15000);
     const context = await browser.newContext({ ...devices['iPhone 13'], deviceScaleFactor: SHOTS ? 2 : 1, timezoneId: 'Europe/London' });
+    await context.clock.setFixedTime(NOW);
     await context.route(`${SUPABASE}/**`, fakeSupabase);
     const page = await context.newPage();
     page.on('pageerror', (e) => {
@@ -123,6 +156,27 @@ const step = (s) => console.log(`✓ ${s}`);
     await shot(page, '02-today-empty');
     step('sign in (wrong password rejected, right one accepted)');
 
+    // Add a calendar
+    await page.getByRole('link', { name: 'Settings' }).click();
+    await page.getByRole('link', { name: 'Manage calendars' }).click();
+    await page.getByLabel('Name').fill('Kate & Neil');
+    await page.getByLabel('Secret calendar link (iCal / ICS)').fill('https://evil.example.com/steal.ics');
+    await page.getByRole('radio', { name: 'Family' }).click();
+    await page.getByRole('button', { name: 'Add calendar' }).click();
+    await page.getByRole('alert').filter({ hasText: 'Google Calendar and Outlook' }).waitFor();
+    assert.equal(tables.calendar_sources.size, 0, 'rejected link creates nothing');
+    await page.getByLabel('Secret calendar link (iCal / ICS)').fill('https://calendar.google.com/calendar/ical/x/private-abc/basic.ics');
+    await page.getByRole('button', { name: 'Add calendar' }).click();
+    await page.getByText(/Added “Kate & Neil”/).waitFor();
+    await page.getByRole('button', { name: /Kate & Neil/ }).waitFor();
+    assert.equal(await page.getByLabel('Secret calendar link (iCal / ICS)').inputValue(), '', 'link is cleared from the form');
+    const stored = await page.evaluate(() => JSON.stringify(localStorage) + document.cookie);
+    assert.ok(!stored.includes('private-abc'), 'link is not stored on the device');
+    await shot(page, '02b-calendars');
+    await page.getByRole('button', { name: 'Done' }).click();
+    await page.getByRole('button', { name: 'Done' }).click();
+    step('add a calendar (bad link rejected; link not kept on device)');
+
     // Check in
     await page.getByRole('link', { name: 'Check in' }).click();
     const scale = (label) => page.getByRole('radiogroup', { name: label });
@@ -139,7 +193,27 @@ const step = (s) => console.log(`✓ ${s}`);
     await page.getByLabel('Add to Body').press('Enter');
     await page.locator('summary', { hasText: 'What happened just before this?' }).click();
     await page.getByRole('textbox', { name: 'What happened just before this?' }).fill('Calendar reminder');
+
+    // Calendar events: the default rule, then adjustments
+    const around = page.getByRole('button', { name: /Around now/ });
+    await around.waitFor();
+    assert.match(await around.innerText(), /Neil’s parents visiting · Gym 06:00 · Dentist 10:00 · \+1/);
     await shot(page, '03-check-in');
+    await around.click();
+    const box = (name) => page.getByRole('checkbox', { name });
+    for (const n of [/Gym/, /Dentist/, /Dinner with Sam/, /Neil’s parents/]) assert.ok(await box(n).isChecked(), `${n} pre-ticked`);
+    assert.equal(await box(/Film night/).isChecked(), false, 'film (13h ahead) offered but not ticked');
+    assert.equal(await box(/Yesterday standup/).count(), 0, 'yesterday not offered');
+    await box(/Dinner with Sam/).uncheck();
+    await box(/Film night/).check();
+    await page.getByRole('button', { name: /Kind for Dentist/ }).click();
+    await page.getByRole('radiogroup', { name: 'Kind' }).getByRole('radio', { name: 'Appointment' }).click();
+    await page.getByRole('button', { name: /Kind for Gym/ }).click();
+    await page.getByRole('radiogroup', { name: 'Kind' }).getByRole('button', { name: '+ Other' }).click();
+    await page.getByLabel('New kind').fill('Training');
+    await page.getByLabel('New kind').press('Enter');
+    await page.getByRole('button', { name: 'Kind for Gym: Training' }).waitFor();
+    await shot(page, '03b-check-in-events');
     await page.getByRole('button', { name: 'Save' }).click();
     await page.getByText('Saved', { exact: true }).waitFor();
     await page.getByText('Can’t face this meeting.').waitFor();
@@ -154,12 +228,22 @@ const step = (s) => console.log(`✓ ${s}`);
     assert.equal(saved.timezone, 'Europe/London');
     assert.match(saved.local_date, /^\d{4}-\d{2}-\d{2}$/);
     await waitFor(() => [...tables.tags.values()].some((t) => t.label === 'Jaw clenched'), 'custom tag synced');
+    const ev = Object.fromEntries(saved.events.map((e) => [e.title, e]));
+    assert.deepEqual(Object.keys(ev).sort(), ['Dentist', 'Film night', 'Gym', 'Neil’s parents visiting']);
+    assert.deepEqual([ev.Dentist.kind, ev.Dentist.relation, ev.Dentist.offset_min], ['Appointment', 'upcoming', 120]);
+    assert.deepEqual([ev.Gym.kind, ev.Gym.relation, ev.Gym.offset_min], ['Training', 'recent', -60]);
+    assert.deepEqual([ev['Film night'].relation, ev['Film night'].offset_min], ['later', 780]);
+    assert.deepEqual([ev['Neil’s parents visiting'].kind, ev['Neil’s parents visiting'].relation], ['Family', 'all_day']);
+    await waitFor(() => [...tables.event_series.values()].some((s) => s.series_key === 'dentist' && s.kind === 'Appointment'), 'series kind synced');
+    await waitFor(() => [...tables.tags.values()].some((t) => t.kind === 'event' && t.label === 'Training'), 'custom kind synced');
+    step('calendar events pre-ticked by the timing rule; untick, add, set kinds (incl. custom)');
     step('check in with scales, tags, custom tag and text; synced to server');
 
     // History → expand → edit
     await page.getByRole('link', { name: 'History' }).click();
     await page.getByText('Can’t face this meeting.').click();
     await page.getByText('Calendar reminder').waitFor();
+    await page.locator('.plain-list').getByText(/Dentist/).waitFor();
     await shot(page, '05-history-expanded');
     await page.getByRole('link', { name: 'Edit' }).click();
     await page.getByLabel('What’s going through your head?').fill('Can’t face this meeting. It went fine in the end.');
@@ -224,7 +308,7 @@ const step = (s) => console.log(`✓ ${s}`);
 
     // History filters
     await page.getByRole('link', { name: 'History' }).click();
-    await page.getByRole('searchbox', { name: 'Search' }).fill('train');
+    await page.getByRole('searchbox', { name: 'Search' }).fill('no signal');
     await page.getByText('1 check-in', { exact: true }).waitFor();
     await page.getByRole('searchbox', { name: 'Search' }).fill('');
     await page.getByRole('button', { name: /^Filter/ }).click();
@@ -256,6 +340,7 @@ const step = (s) => console.log(`✓ ${s}`);
     assert.match(csv, /^id,observed_at,timezone/);
     assert.match(csv, /It went fine in the end/);
     assert.match(csv, /Holiday/);
+    assert.match(csv, /Dentist \[Appointment\] \(upcoming, 120 min\)/);
     const [jsonDl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Export everything (JSON)' }).click()]);
     const exported = JSON.parse(fs.readFileSync(await jsonDl.path(), 'utf8'));
     assert.equal(exported.check_ins.length, 1);
@@ -276,6 +361,7 @@ const step = (s) => console.log(`✓ ${s}`);
     if (SHOTS) {
       const dark = await browser.newContext({ ...devices['iPhone 13'], deviceScaleFactor: 2, colorScheme: 'dark' });
       await dark.route(`${SUPABASE}/**`, fakeSupabase);
+      await dark.clock.setFixedTime(NOW);
       const p2 = await dark.newPage();
       await p2.goto(BASE);
       await p2.getByLabel('Email').fill(USER.email);
@@ -293,6 +379,10 @@ const step = (s) => console.log(`✓ ${s}`);
   } catch (e) {
     failed = true;
     console.error(e);
+    if (process.env.DEBUG_E2E) for (const p of browser.contexts().flatMap((c) => c.pages())) {
+      console.error('URL', p.url());
+      console.error((await p.locator('main').innerText().catch(() => '')).slice(0, 1500));
+    }
   } finally {
     await browser.close();
     server.kill();

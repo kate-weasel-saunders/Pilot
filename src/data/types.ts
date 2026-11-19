@@ -5,7 +5,7 @@
  */
 
 export type Score = 1 | 2 | 3 | 4 | 5;
-export type TagKind = 'body' | 'context' | 'need';
+export type TagKind = 'body' | 'context' | 'need' | 'event';
 export type MeasureKey = 'mood' | 'energy' | 'anxiety' | 'pressure';
 
 export interface CheckIn {
@@ -23,7 +23,64 @@ export interface CheckIn {
   need_tags: string[];
   thought: string | null;
   preceding: string | null;
+  /** Calendar events attached to this check-in, as they were at the time. */
+  events: EventSnapshot[];
   extra: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+/** How an event related in time to the check-in it's attached to. */
+export type EventRelation = 'upcoming' | 'now' | 'recent' | 'all_day' | 'earlier' | 'later';
+
+export interface EventSnapshot {
+  key: string; // calendar_events.event_key
+  series_key: string;
+  title: string | null;
+  kind: string | null;
+  all_day: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+  start_date: string | null;
+  end_date: string | null; // exclusive
+  relation: EventRelation;
+  /** Minutes until start (positive) or since end (negative); 0 if happening/all-day. */
+  offset_min: number;
+}
+
+export interface CalendarSource {
+  id: string;
+  name: string;
+  default_kind: string | null;
+  enabled: boolean;
+  last_refreshed_at: string | null;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Imported by the server; read-only on the device. */
+export interface CalendarEvent {
+  id: string;
+  event_key: string;
+  series_key: string;
+  source_ids: string[];
+  title: string | null;
+  all_day: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EventSeries {
+  id: string;
+  series_key: string;
+  kind: string | null;
+  title_override: string | null;
+  hidden: boolean; // never pre-select
   created_at: string;
   updated_at: string;
 }
@@ -52,7 +109,19 @@ export interface Tag {
   updated_at: string;
 }
 
-export type SyncedTable = 'check_ins' | 'periods' | 'tags';
+/** Tables the device writes to (via the outbox). */
+export type SyncedTable = 'check_ins' | 'periods' | 'tags' | 'calendar_sources' | 'event_series';
+/** Tables the device reads from the server. */
+export type PulledTable = SyncedTable | 'calendar_events';
+
+export interface RowTypes {
+  check_ins: CheckIn;
+  periods: Period;
+  tags: Tag;
+  calendar_sources: CalendarSource;
+  event_series: EventSeries;
+  calendar_events: CalendarEvent;
+}
 
 /** A pending change waiting to reach the server. */
 export interface OutboxEntry {

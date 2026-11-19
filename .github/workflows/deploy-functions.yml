@@ -1,0 +1,35 @@
+# Deploys Supabase Edge Functions whenever they change, so no terminal is needed.
+# One-time setup in GitHub → repo Settings → Secrets and variables → Actions:
+#   Secret   SUPABASE_ACCESS_TOKEN  (supabase.com → Account → Access Tokens)
+#   Variable SUPABASE_PROJECT_REF   (the id in your project URL: https://<ref>.supabase.co)
+# Skips quietly until both are set. Can also be run by hand from the Actions tab.
+name: Deploy Supabase functions
+
+on:
+  push:
+    paths:
+      - 'supabase/functions/**'
+      - '.github/workflows/deploy-functions.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-functions
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ vars.SUPABASE_PROJECT_REF != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Deploy calendar function
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: npx -y supabase@3.2.0 functions deploy calendar --remote="$PROJECT_REF" --use-api --yes

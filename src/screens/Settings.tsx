@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../auth/AuthProvider';
 import { db } from '../data/db';
 import { syncNow, useSyncState } from '../data/syncController';
@@ -18,8 +18,10 @@ export function Settings() {
 
   const load = async () => {
     await syncNow();
-    const [check_ins, periods, tags] = await Promise.all([db.check_ins.toArray(), db.periods.toArray(), db.tags.toArray()]);
-    return { check_ins, periods, tags };
+    const [check_ins, periods, tags, calendar_sources, event_series] = await Promise.all([
+      db.check_ins.toArray(), db.periods.toArray(), db.tags.toArray(), db.calendar_sources.toArray(), db.event_series.toArray(),
+    ]);
+    return { check_ins, periods, tags, calendar_sources, event_series };
   };
   const stamp = todayLocal();
 
@@ -30,6 +32,14 @@ export function Settings() {
         <span className="spacer" />
         <button type="button" className="button quiet" onClick={() => navigate(-1)}>Done</button>
       </div>
+
+      <section className="section">
+        <h2 className="section-title">Calendars</h2>
+        <div className="stack">
+          <p className="muted small">Attach events from Google or Outlook calendars to your check-ins.</p>
+          <Link to="/settings/calendars" className="button">Manage calendars</Link>
+        </div>
+      </section>
 
       <section className="section">
         <h2 className="section-title">Your data</h2>

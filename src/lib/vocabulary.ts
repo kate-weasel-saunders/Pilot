@@ -58,6 +58,16 @@ export const TAG_GROUPS: TagGroup[] = [
   },
 ];
 
+/** Kinds of calendar event. Custom kinds are added via "+ Other" (tags of kind 'event'). */
+export const EVENT_KINDS = ['Work', 'Meeting', 'Social', 'Family', 'Appointment', 'Travel', 'Exercise', 'Personal'];
+
+const DEFAULTS: Record<TagKind, string[]> = {
+  body: TAG_GROUPS[0]!.defaults,
+  context: TAG_GROUPS[1]!.defaults,
+  need: TAG_GROUPS[2]!.defaults,
+  event: EVENT_KINDS,
+};
+
 export const PERIOD_CATEGORIES = ['Holiday', 'Work', 'Break', 'Experiment', 'Social', 'Health', 'Other'];
 
 const norm = (s: string) => s.trim().toLocaleLowerCase();
@@ -68,7 +78,6 @@ const norm = (s: string) => s.trim().toLocaleLowerCase();
  * vocabulary any more (so editing never silently drops a tag).
  */
 export function chipsFor(kind: TagKind, tags: Tag[], selected: string[] = []): string[] {
-  const group = TAG_GROUPS.find((g) => g.kind === kind)!;
   const mine = tags.filter((t) => t.kind === kind);
   const hidden = new Set(mine.filter((t) => t.hidden).map((t) => norm(t.label)));
   const out: string[] = [];
@@ -79,7 +88,7 @@ export function chipsFor(kind: TagKind, tags: Tag[], selected: string[] = []): s
     seen.add(k);
     out.push(label);
   };
-  group.defaults.filter((d) => !hidden.has(norm(d))).forEach(push);
+  DEFAULTS[kind].filter((d) => !hidden.has(norm(d))).forEach(push);
   mine
     .filter((t) => !t.hidden)
     .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))

@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { db } from './db';
 import { pull, push, supabaseRemote, type Remote } from './sync';
+import { maybeRefreshCalendars } from './calendarController';
 
 /**
  * Runs sync in the background: on start, after local writes (debounced), when
@@ -51,6 +52,8 @@ export function syncNow(): Promise<void> {
       try {
         await push(db, r);
         await pull(db, r);
+        // Occasionally re-import calendars on the server, then pull the results.
+        if (await maybeRefreshCalendars()) await pull(db, r);
         set({ status: 'idle', lastSyncedAt: new Date().toISOString(), error: null });
       } catch (e) {
         if (isNetworkError(e)) set({ status: 'offline', error: null });

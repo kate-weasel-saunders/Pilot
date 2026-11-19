@@ -5,7 +5,7 @@ import { buildCheckInsCsv, buildJsonExport, csvCell } from './export';
 const c: CheckIn = {
   id: '1', observed_at: '2026-12-01T09:30:00.000Z', timezone: 'Europe/London', local_date: '2026-12-01', local_time: '09:30:00',
   mood: 2, energy: 1, anxiety: 4, pressure: null, body_tags: ['Heavy', 'Foggy'], context_tags: ['Work'], need_tags: [],
-  thought: 'He said "fine", but\nit wasn’t', preceding: null, extra: {}, created_at: 'x', updated_at: 'y',
+  thought: 'He said "fine", but\nit wasn’t', preceding: null, events: [], extra: {}, created_at: 'x', updated_at: 'y',
 };
 
 describe('csv', () => {
@@ -24,6 +24,23 @@ describe('csv', () => {
     expect(header).toContain('weekday,part_of_day');
     expect(row).toContain('Tuesday,morning,2,1,4,,Heavy; Foggy,Work,');
     expect(csv).toContain('"He said ""fine"", but\nit wasn’t"');
+  });
+});
+
+describe('events in exports', () => {
+  it('describes attached events in the CSV', () => {
+    const withEvents: CheckIn = {
+      ...c,
+      events: [{ key: 'k', series_key: 's', title: 'Dentist', kind: 'Appointment', all_day: false, starts_at: '2026-12-01T10:00:00Z',
+        ends_at: '2026-12-01T10:30:00Z', start_date: null, end_date: null, relation: 'upcoming', offset_min: 30 }],
+    };
+    expect(buildCheckInsCsv([withEvents], [])).toContain('Dentist [Appointment] (upcoming, 30 min)');
+  });
+  it('never exports calendar links', () => {
+    const out = buildJsonExport({ check_ins: [], periods: [], tags: [], calendar_sources: [{ id: '1', name: 'Home', default_kind: null, enabled: true,
+      last_refreshed_at: null, last_error: null, created_at: '', updated_at: '', ...({ feed_url: 'https://secret' } as object) }] });
+    expect(out).not.toContain('secret');
+    expect(JSON.parse(out).calendar_sources[0].name).toBe('Home');
   });
 });
 

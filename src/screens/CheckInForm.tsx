@@ -2,9 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useNavigate, useParams } from 'react-router';
 import { db, getMeta, setMeta } from '../data/db';
-import { removeCheckIn, saveCheckIn, saveTag } from '../data/actions';
+import { removeCheckIn, saveCheckIn, saveSeriesPref, saveTag } from '../data/actions';
+import { useCalendar } from '../data/hooks';
+import { candidatesFor, snapshotOf } from '../lib/calendar';
+import { EventPicker } from '../components/EventPicker';
 import { newId } from '../data/repo';
-import type { CheckIn, Score, Tag, TagKind } from '../data/types';
+import type { CalendarEvent, CheckIn, EventSnapshot, Score, Tag, TagKind } from '../data/types';
 import { deviceTimeZone, formatDayHeading, instantFromWallClock, localFields, wallClock } from '../lib/time';
 import { chipsFor, MEASURES, TAG_GROUPS } from '../lib/vocabulary';
 import { ScaleInput } from '../components/ScaleInput';
@@ -27,6 +30,8 @@ interface Draft {
   timezone: string;
   timeEdited: boolean;
   startedAt: number;
+  /** Chosen calendar events; null = use the default rule at save time. */
+  events: EventSnapshot[] | null;
 }
 
 const emptyFields = (): Fields => ({
@@ -37,7 +42,7 @@ const emptyFields = (): Fields => ({
 function newDraft(): Draft {
   const tz = deviceTimeZone();
   const { date, time } = wallClock(new Date(), tz);
-  return { fields: emptyFields(), date, time: time.slice(0, 5), timezone: tz, timeEdited: false, startedAt: Date.now() };
+  return { fields: emptyFields(), date, time: time.slice(0, 5), timezone: tz, timeEdited: false, startedAt: Date.now(), events: null };
 }
 
 function draftFrom(c: CheckIn): Draft {
@@ -52,6 +57,7 @@ function draftFrom(c: CheckIn): Draft {
     timezone: c.timezone,
     timeEdited: false,
     startedAt: Date.now(),
+    events: c.events ?? [],
   };
 }
 
@@ -74,7 +80,7 @@ export function CheckInForm() {
         if (live) setInitial(c ? { draft: draftFrom(c), existing: c } : 'missing');
       } else {
         const saved = await getMeta<Draft>(db, DRAFT_KEY);
-        const fresh = saved && Date.now() - saved.startedAt < DRAFT_MAX_AGE_MS ? saved : newDraft();
+        const fresh = saved && Date.now() - saved.startedAt < DRAFT_MAX_AGE_MS ? { ...saved, events: saved.events ?? null } : newDraft();
         if (live) setInitial({ draft: fresh, existing: null });
       }
     })();
@@ -99,8 +105,42 @@ function Form({ initial, existing }: { initial: Draft; existing: CheckIn | null 
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const tags = useLiveQuery(() => db.tags.toArray(), [], [] as Tag[]);
+  const calendar = useCalendar();
   const f = draft.fields;
   const isNew = existing === null;
+
+  // The moment this check-in is about, which drives which events are relevant.
+  const at = !isNew && !draft.timeEdited && existing
+    ? new Date(existing.observed_at)
+    : draft.timeEdited
+      ? instantFromWallClock(draft.date, draft.time, draft.timezone)
+      : new Date(draft.startedAt);
+  const atDate = wallClock(at, draft.timezone).date;
+  const candidates = candidatesFor(calendar.events, at, atDate, draft.timezone, calendar.ctx);
+  const eventsByKey = new Map(calendar.events.map((e) => [e.event_key, e]));
+  const selected = new Map(
+    (draft.events ?? candidates.suggested.map((e) => snapshotOf(e, at, atDate, calendar.ctx))).map((s) => [s.key, s]),
+  );
+
+  const toggleEvent = (item: CalendarEvent | EventSnapshot, on: boolean) => {
+    const next = new Map(selected);
+    const key = 'event_key' in item ? item.event_key : item.key;
+    if (on) next.set(key, 'event_key' in item ? snapshotOf(item, at, atDate, calendar.ctx) : item);
+    else next.delete(key);
+    setDraft((d) => ({ ...d, events: [...next.values()] }));
+  };
+
+  /** Final snapshots: refreshed from the calendar where the event still exists. */
+  const finalEvents = (instant: Date, localDate: string): EventSnapshot[] => {
+    if (draft.events === null) {
+      const c = candidatesFor(calendar.events, instant, localDate, draft.timezone, calendar.ctx);
+      return c.suggested.map((e) => snapshotOf(e, instant, localDate, calendar.ctx));
+    }
+    return draft.events.map((s) => {
+      const e = eventsByKey.get(s.key);
+      return e ? snapshotOf(e, instant, localDate, calendar.ctx) : s;
+    });
+  };
 
   // Persist an unsaved new check-in so it survives the app being closed.
   const firstRender = useRef(true);
@@ -140,6 +180,7 @@ function Form({ initial, existing }: { initial: Draft; existing: CheckIn | null 
       body_tags: f.body_tags, context_tags: f.context_tags, need_tags: f.need_tags,
       thought: f.thought.trim() || null,
       preceding: f.preceding.trim() || null,
+      events: finalEvents(new Date(local.observed_at), local.local_date),
       extra: existing?.extra ?? {},
       created_at: existing?.created_at ?? new Date().toISOString(),
       updated_at: '',
@@ -193,6 +234,21 @@ function Form({ initial, existing }: { initial: Draft; existing: CheckIn | null 
           <ScaleInput key={m.key} measure={m} value={f[m.key]} onChange={(v: Score | null) => setField(m.key, v)} />
         ))}
       </div>
+
+      <EventPicker
+        suggested={candidates.suggested}
+        others={candidates.others}
+        selected={selected}
+        ctx={calendar.ctx}
+        at={at}
+        localDate={atDate}
+        timeZone={draft.timezone}
+        kinds={chipsFor('event', tags)}
+        onToggle={toggleEvent}
+        onSetKind={(seriesKey, kind) => void saveSeriesPref(seriesKey, { kind })}
+        onAddKind={(label) => addCustom('event', label)}
+        onSetHidden={(seriesKey, hidden) => void saveSeriesPref(seriesKey, { hidden })}
+      />
 
       <label className="field thought-field section">
         <span className="section-title">What’s going through your head?</span>
