@@ -32,7 +32,7 @@ Not built yet: trends, AI analysis, Ask My Data, experiments, delete-all-data.
 
 ### 1b. Calendar import (optional, needed for calendars)
 
-1. **Apply the second migration**: in the SQL Editor, paste the contents of `supabase/migrations/20261119000000_calendars.sql` and run it. Run migrations in date order; the first must already have been run.
+1. **Apply the calendar migrations**: in the SQL Editor, paste and run the contents of `supabase/migrations/20261119000000_calendars.sql`, then `supabase/migrations/20261119180000_feed_secrets_service_role.sql`. Run migrations in date order; the first must already have been run.
 2. **Deploy the `calendar` function**, either option:
    - **Automatic (no terminal):** in GitHub → this repo → Settings → Secrets and variables → Actions:
      - add the **secret** `SUPABASE_ACCESS_TOKEN` (create one at supabase.com → your avatar → Account preferences → Access Tokens, with only the **edge_functions_write** permission; you can delete it after a successful deploy and make a new one next time the function changes)

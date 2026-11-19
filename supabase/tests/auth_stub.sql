@@ -4,6 +4,8 @@
 -- that PostgREST places in request.jwt.claims.
 create role anon nologin;
 create role authenticated nologin;
+-- Supabase's server role bypasses RLS but, like any role, still needs table privileges.
+create role service_role nologin bypassrls;
 create schema auth;
 grant usage on schema auth to anon, authenticated;
 grant usage on schema public to anon, authenticated;

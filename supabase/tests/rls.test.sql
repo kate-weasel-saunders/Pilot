@@ -182,6 +182,18 @@ end $$;
 commit;
 \echo 'ok 12 - feed secrets are server-only'
 
+-- 12b. The server role (used only by the calendar function) can manage feed secrets.
+begin;
+set local role service_role;
+insert into public.calendar_feed_secrets (source_id, user_id, feed_url)
+  values ('33333333-3333-4333-8333-333333333333', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'https://calendar.google.com/calendar/ical/x/private-new/basic.ics')
+  on conflict (source_id) do update set feed_url = excluded.feed_url;
+do $$ begin
+  assert (select feed_url from public.calendar_feed_secrets where source_id = '33333333-3333-4333-8333-333333333333') like '%private-new%', 'service_role can upsert and read secrets';
+end $$;
+commit;
+\echo 'ok 12b - server role can store and read feed secrets'
+
 -- 13. Check-in event snapshots must be arrays; deleting a source removes its secret.
 begin;
 select pg_temp.as_user('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') \gset

@@ -15,7 +15,7 @@ Personal, single-user mood/energy observation PWA. Read `docs/ARCHITECTURE.md` f
 - `supabase/functions/calendar/` — Edge Function: `handler.ts` (testable logic), `index.ts` (Deno wiring). Type-check: `npx deno check --config supabase/functions/calendar/deno.json supabase/functions/calendar/index.ts`
 - `.github/workflows/deploy-functions.yml` — deploys functions on change (needs SUPABASE_ACCESS_TOKEN secret + SUPABASE_PROJECT_REF variable)
 - `src/screens/`, `src/components/` — UI
-- `supabase/migrations/` — schema; every new table needs RLS + the four own-row policies
+- `supabase/migrations/` — schema; every new table needs RLS + the four own-row policies. Grant privileges explicitly (incl. `service_role` where a function needs it): don't rely on Supabase default privileges, which this project doesn't have
 - `supabase/tests/` — RLS tests against local Postgres (`npm run test:db`)
 - `e2e/smoke.cjs` — full-loop test on emulated iPhone with fake Supabase
 
