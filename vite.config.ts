@@ -2,12 +2,28 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { execSync } from 'node:child_process';
+
+/** Short commit id + build date, shown in Settings so you can tell which version is running. */
+function buildLabel(): string {
+  let sha = process.env.VERCEL_GIT_COMMIT_SHA ?? '';
+  if (!sha) {
+    try {
+      sha = execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    } catch {
+      sha = 'dev';
+    }
+  }
+  return `${sha.slice(0, 7)} · ${new Date().toISOString().slice(0, 10)}`;
+}
 
 export default defineConfig({
+  define: { __APP_BUILD__: JSON.stringify(buildLabel()) },
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: false, // registered in src/lib/pwa.ts
       // Only the built app shell is cached. API traffic (Supabase) is never
       // cached by the service worker: personal data lives in IndexedDB only.
       workbox: {

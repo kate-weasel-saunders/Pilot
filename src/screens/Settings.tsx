@@ -86,6 +86,8 @@ export function Settings() {
         </div>
       </section>
 
+      <p className="faint small section">Pilot version {__APP_BUILD__}</p>
+
       <ConfirmDialog
         open={confirmSignOut}
         title="Sign out?"
