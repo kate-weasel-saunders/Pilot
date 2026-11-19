@@ -33,12 +33,27 @@ const cors = {
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 
+/** A database step failed. Carries only the step name and Postgres/PostgREST code, never data. */
+class DbError extends Error {
+  constructor(readonly stage: string, readonly code: string) {
+    super(`Database request failed at ${stage} (${code})`);
+  }
+}
+
+// Table missing / not yet visible to the API: almost always "the calendars migration wasn't run".
+const MISSING_TABLE_CODES = new Set(['42P01', 'PGRST205', 'PGRST204', '42703']);
+
 async function fetchFeed(url: string): Promise<string> {
-  const res = await fetch(url, {
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    headers: { Accept: 'text/calendar, text/plain;q=0.8' },
-    redirect: 'follow',
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      headers: { Accept: 'text/calendar, text/plain;q=0.8' },
+      redirect: 'follow',
+    });
+  } catch {
+    throw new UserError('Couldn’t reach the calendar. Check the link and try again.');
+  }
   if (!res.ok) throw new UserError(res.status === 404 || res.status === 401 || res.status === 403
     ? 'The calendar link no longer works. It may have been reset.'
     : 'The calendar service didn’t respond properly.');
@@ -72,9 +87,14 @@ function depsFor(token: string): Deps {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+  let stage = 'start';
   const check = <T>(r: { data: T; error: unknown }) => {
-    if (r.error) throw new Error('Database request failed');
+    if (r.error) throw new DbError(stage, String((r.error as { code?: string }).code ?? 'unknown'));
     return r.data;
+  };
+  const at = <A extends unknown[], R>(name: string, fn: (...args: A) => Promise<R>) => (...args: A) => {
+    stage = name;
+    return fn(...args);
   };
 
   return {
@@ -82,44 +102,44 @@ function depsFor(token: string): Deps {
       const { data, error } = await user.auth.getUser(token);
       return error ? null : (data.user?.id ?? null);
     },
-    async listSources() {
+    listSources: at('listSources', async () => {
       return check(await user.from('calendar_sources').select('id, name, enabled')) ?? [];
-    },
-    async createSource(name, default_kind) {
+    }),
+    createSource: at('createSource', async (name, default_kind) => {
       const source = check(await user.from('calendar_sources').insert({ name, default_kind }).select('id, name, enabled').single());
       if (!source) throw new Error('Calendar could not be created');
       return source;
-    },
-    async deleteSource(id) {
+    }),
+    deleteSource: at('deleteSource', async (id) => {
       check(await user.from('calendar_sources').delete().eq('id', id));
-    },
-    async setFeedUrl(userId, source_id, feed_url) {
+    }),
+    setFeedUrl: at('setFeedUrl', async (userId, source_id, feed_url) => {
       check(await admin.from('calendar_feed_secrets').upsert({ source_id, user_id: userId, feed_url }, { onConflict: 'source_id' }));
-    },
-    async getFeedUrls(userId) {
+    }),
+    getFeedUrls: at('getFeedUrls', async (userId) => {
       const rows = check(await admin.from('calendar_feed_secrets').select('source_id, feed_url').eq('user_id', userId)) ?? [];
       return new Map(rows.map((r: { source_id: string; feed_url: string }) => [r.source_id, r.feed_url]));
-    },
-    async existingEvents() {
+    }),
+    existingEvents: at('existingEvents', async () => {
       return check(await user.from('calendar_events').select('event_key, source_ids, starts_at, end_date')) ?? [];
-    },
-    async upsertEvents(rows) {
+    }),
+    upsertEvents: at('upsertEvents', async (rows) => {
       for (let i = 0; i < rows.length; i += 500) {
         check(await user.from('calendar_events').upsert(rows.slice(i, i + 500), { onConflict: 'user_id,event_key' }));
       }
-    },
-    async deleteEvents(keys) {
+    }),
+    deleteEvents: at('deleteEvents', async (keys) => {
       for (let i = 0; i < keys.length; i += 100) {
         check(await user.from('calendar_events').delete().in('event_key', keys.slice(i, i + 100)));
       }
-    },
-    async pruneBefore(iso, date) {
+    }),
+    pruneBefore: at('pruneBefore', async (iso, date) => {
       check(await user.from('calendar_events').delete().lt('ends_at', iso));
       check(await user.from('calendar_events').delete().lt('end_date', date));
-    },
-    async setSourceStatus(id, status) {
+    }),
+    setSourceStatus: at('setSourceStatus', async (id, status) => {
       check(await user.from('calendar_sources').update(status).eq('id', id));
-    },
+    }),
     fetchFeed,
     now: () => new Date(),
   };
@@ -139,6 +159,13 @@ Deno.serve(async (req) => {
     return json(200, await handle(depsFor(token), body));
   } catch (e) {
     if (e instanceof UserError) return json(e.status, { error: e.message });
+    if (e instanceof DbError) {
+      console.error(`calendar function: database error at ${e.stage}, code ${e.code}`);
+      if (MISSING_TABLE_CODES.has(e.code)) {
+        return json(500, { error: 'Pilot’s database is missing the calendar tables. Run the calendars SQL migration in Supabase, then try again.' });
+      }
+      return json(500, { error: `Pilot’s database refused the request (step: ${e.stage}, code ${e.code}).` });
+    }
     console.error('calendar function failed:', e instanceof Error ? e.name : 'unknown');
     return json(500, { error: 'Something went wrong importing calendars.' });
   }
