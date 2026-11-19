@@ -1,6 +1,6 @@
 # Deploys Supabase Edge Functions whenever they change, so no terminal is needed.
 # One-time setup in GitHub → repo Settings → Secrets and variables → Actions:
-#   Secret   SUPABASE_ACCESS_TOKEN  (supabase.com → Account → Access Tokens)
+#   Secret   SUPABASE_ACCESS_TOKEN  (supabase.com → Account → Access Tokens; needs only edge_functions_write)
 #   Variable SUPABASE_PROJECT_REF   (the id in your project URL: https://<ref>.supabase.co)
 # Skips quietly until both are set. Can also be run by hand from the Actions tab.
 name: Deploy Supabase functions

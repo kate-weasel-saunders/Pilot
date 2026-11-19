@@ -35,7 +35,7 @@ Not built yet: trends, AI analysis, Ask My Data, experiments, delete-all-data.
 1. **Apply the second migration**: in the SQL Editor, paste the contents of `supabase/migrations/20261119000000_calendars.sql` and run it. Run migrations in date order; the first must already have been run.
 2. **Deploy the `calendar` function**, either option:
    - **Automatic (no terminal):** in GitHub → this repo → Settings → Secrets and variables → Actions:
-     - add the **secret** `SUPABASE_ACCESS_TOKEN` (create one at supabase.com → your avatar → Account preferences → Access Tokens)
+     - add the **secret** `SUPABASE_ACCESS_TOKEN` (create one at supabase.com → your avatar → Account preferences → Access Tokens, with only the **edge_functions_write** permission; you can delete it after a successful deploy and make a new one next time the function changes)
      - add the **variable** `SUPABASE_PROJECT_REF` (the part before `.supabase.co` in your project URL)
 
      Then open the **Actions** tab → *Deploy Supabase functions* → **Run workflow**. It also redeploys automatically whenever the function changes.
