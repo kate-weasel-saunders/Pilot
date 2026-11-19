@@ -22,10 +22,10 @@ Not built yet: trends, AI analysis, Ask My Data, experiments, delete-all-data.
 ### 1. Supabase (free tier is fine)
 
 1. Create a project at supabase.com. Pick a region near you.
-2. **Authentication → Sign In / Providers → Email**: keep Email enabled. **Turn off "Allow new users to sign up"** (Signal is for you only).
+2. **Authentication → Sign In / Providers**: in the **User Signups** section at the top of the page (not inside the Email provider), turn off **Allow new users to sign up** and save. Some dashboard versions put this under Authentication → Settings. It's recommended but not essential: Row Level Security keeps each account's data separate either way.
 3. **Authentication → Users → Add user**: create yourself with an email and a strong password. Tick "Auto confirm".
 4. Apply the schema, using either option:
-   - **SQL Editor**: paste `supabase/migrations/20261118000000_initial_schema.sql` and run it, or
+   - **SQL Editor**: open `supabase/migrations/20261118000000_initial_schema.sql` (on GitHub, use "Copy raw file"), paste its **contents** into a new query and click Run. If Supabase warns about destructive operations, confirm: that's the line removing anonymous access. Afterwards Table Editor should show `check_ins`, `periods`, `tags` and `analyses`. Or:
    - **CLI**: `npx supabase login && npx supabase init && npx supabase link --project-ref <ref> && npx supabase db push`
 5. **Project Settings → API Keys**: copy the project URL and the **publishable** key (`sb_publishable_…`). Never use the secret/service_role key in this app.
 
