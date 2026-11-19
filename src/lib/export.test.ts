@@ -30,7 +30,7 @@ describe('csv', () => {
 describe('json', () => {
   it('is versioned and round-trips', () => {
     const out = JSON.parse(buildJsonExport({ check_ins: [c], periods: [], tags: [] }, new Date('2026-12-02T00:00:00Z')));
-    expect(out.format).toBe('signal-export');
+    expect(out.format).toBe('pilot-export');
     expect(out.version).toBe(1);
     expect(out.check_ins[0]).toEqual(c);
   });

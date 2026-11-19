@@ -1,4 +1,4 @@
--- Signal — initial schema
+-- Pilot — initial schema
 --
 -- Design notes (see docs/ARCHITECTURE.md for the longer version):
 -- * Every personal table has user_id + Row Level Security. Policies only ever

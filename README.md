@@ -1,8 +1,8 @@
-# Signal
+# Pilot
 
 A private, phone-first instrument for noticing your own patterns: mood, energy, anxiety, pressure, body, context, needs and thoughts. Capture is fast; interpretation comes later.
 
-Signal is a single-user Progressive Web App: React + TypeScript (Vite), Supabase (Auth + Postgres with Row Level Security) and IndexedDB on the device so check-ins never depend on a connection. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design and reasoning.
+Pilot is a single-user Progressive Web App: React + TypeScript (Vite), Supabase (Auth + Postgres with Row Level Security) and IndexedDB on the device so check-ins never depend on a connection. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design and reasoning.
 
 ## What works now
 

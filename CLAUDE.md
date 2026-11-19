@@ -1,4 +1,4 @@
-# Signal — notes for Claude Code
+# Pilot — notes for Claude Code
 
 Personal, single-user mood/energy observation PWA. Read `docs/ARCHITECTURE.md` first.
 

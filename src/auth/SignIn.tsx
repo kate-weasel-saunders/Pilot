@@ -19,7 +19,7 @@ export function SignIn() {
 
   return (
     <main className="signin">
-      <h1 className="wordmark">Signal</h1>
+      <h1 className="wordmark">Pilot</h1>
       <p className="muted">A private place to notice how you are.</p>
       <form onSubmit={submit} className="stack">
         <label className="field">
@@ -40,8 +40,8 @@ export function SignIn() {
 export function SetupNeeded() {
   return (
     <main className="signin">
-      <h1 className="wordmark">Signal</h1>
-      <p>Signal isn’t connected to a database yet.</p>
+      <h1 className="wordmark">Pilot</h1>
+      <p>Pilot isn’t connected to a database yet.</p>
       <p className="muted">
         Copy <code>.env.example</code> to <code>.env.local</code>, add your Supabase project URL and publishable key, then restart the dev server. See the README.
       </p>

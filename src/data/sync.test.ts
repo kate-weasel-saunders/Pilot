@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { SignalDB } from './db';
+import { PilotDB } from './db';
 import { deleteRow, newId, saveRow } from './repo';
 import { pull, push, type Remote } from './sync';
 import type { CheckIn, SyncedTable } from './types';
@@ -49,10 +49,10 @@ const checkIn = (over: Partial<CheckIn> = {}): CheckIn => ({
   need_tags: [], thought: 'Can’t face this meeting.', preceding: null, extra: {}, created_at: '', updated_at: '', ...over,
 });
 
-let d: SignalDB;
+let d: PilotDB;
 let remote: FakeRemote;
 beforeEach(() => {
-  d = new SignalDB(`test-${Math.random()}`);
+  d = new PilotDB(`test-${Math.random()}`);
   remote = new FakeRemote();
 });
 afterEach(async () => {

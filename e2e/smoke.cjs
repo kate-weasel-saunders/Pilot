@@ -267,7 +267,7 @@ const step = (s) => console.log(`✓ ${s}`);
     await page.getByRole('dialog', { name: 'Sign out?' }).getByRole('button', { name: 'Sign out' }).click();
     await page.getByLabel('Email').waitFor();
     const leftovers = await page.evaluate(
-      () => new Promise((res) => { const r = indexedDB.open('signal'); r.onsuccess = () => { const tx = r.result.transaction('check_ins'); const c = tx.objectStore('check_ins').count(); c.onsuccess = () => res(c.result); }; }),
+      () => new Promise((res) => { const r = indexedDB.open('pilot'); r.onsuccess = () => { const tx = r.result.transaction('check_ins'); const c = tx.objectStore('check_ins').count(); c.onsuccess = () => res(c.result); }; }),
     );
     assert.equal(leftovers, 0, 'local data cleared on sign-out');
     step('sign out clears local data');

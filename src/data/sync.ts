@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getMeta, setMeta, type SignalDB } from './db';
+import { getMeta, setMeta, type PilotDB } from './db';
 import type { SyncedTable } from './types';
 
 /**
@@ -29,7 +29,7 @@ export interface Remote {
 /** Overlap when pulling, to tolerate transactions committing out of order. */
 const CURSOR_OVERLAP_MS = 5 * 60 * 1000;
 
-export async function push(d: SignalDB, remote: Remote): Promise<number> {
+export async function push(d: PilotDB, remote: Remote): Promise<number> {
   const entries = await d.outbox.orderBy('queued_at').toArray();
   let pushed = 0;
   for (const table of SYNCED_TABLES) {
@@ -68,7 +68,7 @@ export async function push(d: SignalDB, remote: Remote): Promise<number> {
   return pushed;
 }
 
-export async function pull(d: SignalDB, remote: Remote): Promise<void> {
+export async function pull(d: PilotDB, remote: Remote): Promise<void> {
   for (const table of SYNCED_TABLES) {
     const t = d.table(table);
     const cursorKey = `cursor:${table}`;

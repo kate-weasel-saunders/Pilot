@@ -17,8 +17,8 @@ export default defineConfig({
       },
       includeAssets: ['icons/apple-touch-icon.png', 'icons/icon.svg'],
       manifest: {
-        name: 'Signal',
-        short_name: 'Signal',
+        name: 'Pilot',
+        short_name: 'Pilot',
         description: 'A private instrument for noticing your own patterns.',
         start_url: '/',
         scope: '/',

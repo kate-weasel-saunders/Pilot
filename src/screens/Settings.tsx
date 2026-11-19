@@ -35,9 +35,9 @@ export function Settings() {
         <h2 className="section-title">Your data</h2>
         <div className="stack">
           <p className="muted small">
-            Exports include everything Signal holds about you. JSON is a complete backup; CSV opens in a spreadsheet.
+            Exports include everything Pilot holds about you. JSON is a complete backup; CSV opens in a spreadsheet.
           </p>
-          <button type="button" className="button" onClick={async () => deliverFile(`signal-${stamp}.json`, 'application/json', buildJsonExport(await load()))}>
+          <button type="button" className="button" onClick={async () => deliverFile(`pilot-${stamp}.json`, 'application/json', buildJsonExport(await load()))}>
             Export everything (JSON)
           </button>
           <button
@@ -45,7 +45,7 @@ export function Settings() {
             className="button"
             onClick={async () => {
               const d = await load();
-              await deliverFile(`signal-check-ins-${stamp}.csv`, 'text/csv', buildCheckInsCsv(d.check_ins, d.periods));
+              await deliverFile(`pilot-check-ins-${stamp}.csv`, 'text/csv', buildCheckInsCsv(d.check_ins, d.periods));
             }}
           >
             Export check-ins (CSV)
@@ -53,7 +53,7 @@ export function Settings() {
           <button
             type="button"
             className="button"
-            onClick={async () => deliverFile(`signal-periods-${stamp}.csv`, 'text/csv', buildPeriodsCsv((await load()).periods))}
+            onClick={async () => deliverFile(`pilot-periods-${stamp}.csv`, 'text/csv', buildPeriodsCsv((await load()).periods))}
           >
             Export periods (CSV)
           </button>
@@ -81,8 +81,8 @@ export function Settings() {
         title="Sign out?"
         body={
           pending
-            ? `${pending} change${pending === 1 ? ' hasn’t' : 's haven’t'} synced yet and will be lost if you sign out now. Signing out also removes Signal’s data from this device.`
-            : 'Signing out removes Signal’s data from this device. It stays in your account.'
+            ? `${pending} change${pending === 1 ? ' hasn’t' : 's haven’t'} synced yet and will be lost if you sign out now. Signing out also removes Pilot’s data from this device.`
+            : 'Signing out removes Pilot’s data from this device. It stays in your account.'
         }
         confirmLabel="Sign out"
         onCancel={() => setConfirmSignOut(false)}

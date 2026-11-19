@@ -25,7 +25,7 @@ export const supabase: SupabaseClient | null = isConfigured
         // We sign in with email + password, never via links, so nothing
         // should ever be read from the URL.
         detectSessionInUrl: false,
-        storageKey: 'signal-auth',
+        storageKey: 'pilot-auth',
       },
       global: { fetch: fetchWithTimeout },
     })

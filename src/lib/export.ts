@@ -12,7 +12,7 @@ export const EXPORT_FORMAT_VERSION = 1;
 export function buildJsonExport(data: { check_ins: CheckIn[]; periods: Period[]; tags: Tag[] }, now = new Date()) {
   return JSON.stringify(
     {
-      format: 'signal-export',
+      format: 'pilot-export',
       version: EXPORT_FORMAT_VERSION,
       exported_at: now.toISOString(),
       check_ins: [...data.check_ins].sort((a, b) => a.observed_at.localeCompare(b.observed_at)),

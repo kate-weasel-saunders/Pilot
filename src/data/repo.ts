@@ -1,4 +1,4 @@
-import type { SignalDB } from './db';
+import type { PilotDB } from './db';
 import type { CheckIn, OutboxEntry, Period, SyncedTable, Tag } from './types';
 
 /**
@@ -26,7 +26,7 @@ const outboxEntry = (table: SyncedTable, id: string, op: OutboxEntry['op']): Out
   queued_at: nextQueuedAt(),
 });
 
-export async function saveRow<T extends SyncedTable>(d: SignalDB, table: T, row: RowFor<T>): Promise<RowFor<T>> {
+export async function saveRow<T extends SyncedTable>(d: PilotDB, table: T, row: RowFor<T>): Promise<RowFor<T>> {
   const now = new Date().toISOString();
   const t = d.table(table);
   const saved = await d.transaction('rw', t, d.outbox, async () => {
@@ -39,7 +39,7 @@ export async function saveRow<T extends SyncedTable>(d: SignalDB, table: T, row:
   return saved as RowFor<T>;
 }
 
-export async function deleteRow(d: SignalDB, table: SyncedTable, id: string): Promise<void> {
+export async function deleteRow(d: PilotDB, table: SyncedTable, id: string): Promise<void> {
   const t = d.table(table);
   await d.transaction('rw', t, d.outbox, async () => {
     await t.delete(id);
