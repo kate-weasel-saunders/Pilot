@@ -35,10 +35,12 @@ const json = (status: number, body: unknown) =>
 
 /** A database step failed. Carries only the step name and Postgres/PostgREST code, never data. */
 class DbError extends Error {
-  constructor(readonly stage: string, readonly code: string) {
+  constructor(readonly stage: string, readonly code: string, readonly detail: string) {
     super(`Database request failed at ${stage} (${code})`);
   }
 }
+
+const scrub = (s: string) => s.replace(/(https?|webcals?):\/\/\S+/gi, '[link]').slice(0, 300);
 
 // Table missing / not yet visible to the API: almost always "the calendars migration wasn't run".
 const MISSING_TABLE_CODES = new Set(['42P01', 'PGRST205', 'PGRST204', '42703']);
@@ -84,7 +86,7 @@ async function fetchFeed(url: string): Promise<string> {
 /** Error detail that is safe to log: name + message with any URLs (which may be secret links) removed. */
 function describeSafely(e: unknown): string {
   if (!(e instanceof Error)) return 'unknown';
-  return `${e.name}: ${e.message.replace(/(https?|webcals?):\/\/\S+/gi, '[link]').slice(0, 300)}`;
+  return `${e.name}: ${scrub(e.message)}`;
 }
 
 function depsFor(token: string): Deps & { stage(): string } {
@@ -95,7 +97,10 @@ function depsFor(token: string): Deps & { stage(): string } {
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
   let stage = 'start';
   const check = <T>(r: { data: T; error: unknown }) => {
-    if (r.error) throw new DbError(stage, String((r.error as { code?: string }).code ?? 'unknown'));
+    if (r.error) {
+      const err = r.error as { code?: string; message?: string };
+      throw new DbError(stage, String(err.code || 'unknown'), scrub(String(err.message ?? '')));
+    }
     return r.data;
   };
   const at = <A extends unknown[], R>(name: string, fn: (...args: A) => Promise<R>) => (...args: A) => {
@@ -168,13 +173,14 @@ Deno.serve(async (req) => {
   } catch (e) {
     if (e instanceof UserError) return json(e.status, { error: e.message });
     if (e instanceof DbError) {
-      console.error(`calendar function: database error at ${e.stage}, code ${e.code}`);
+      console.error(`calendar function: database error at ${e.stage}, code ${e.code}: ${e.detail}`);
       if (MISSING_TABLE_CODES.has(e.code)) {
         return json(500, { error: 'Pilot’s database is missing the calendar tables. Run the calendars SQL migration in Supabase, then try again.' });
       }
-      return json(500, { error: `Pilot’s database refused the request (step: ${e.stage}, code ${e.code}).` });
+      return json(500, { error: `Pilot’s database refused the request (step: ${e.stage}, code ${e.code}: ${e.detail}).` });
     }
     console.error(`calendar function failed after step ${deps.stage()}: ${describeSafely(e)}`);
-    return json(500, { error: `Something went wrong importing calendars (after step: ${deps.stage()}). Details are in the function’s logs.` });
+    // The detail is shown to the (only) user so problems can be diagnosed without digging through logs.
+    return json(500, { error: `Something went wrong importing calendars (after step: ${deps.stage()}; ${describeSafely(e)}).` });
   }
 });
