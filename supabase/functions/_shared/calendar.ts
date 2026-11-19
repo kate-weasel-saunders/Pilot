@@ -28,7 +28,13 @@ export interface Window {
   to: Date;
 }
 
-const MAX_OCCURRENCES_PER_SERIES = 1000;
+/**
+ * Old repeating events (e.g. a daily reminder since 2019) have thousands of
+ * past occurrences that must be stepped over to reach the window. Stepping is
+ * cheap; the caps only guard against pathological rules.
+ */
+const MAX_STEPS_PER_SERIES = 50_000;
+const MAX_OCCURRENCES_PER_SERIES = 2_000;
 const MAX_TITLE = 500;
 
 type ICalComponent = InstanceType<typeof ICAL.Component>;
@@ -108,7 +114,11 @@ export function parseFeed(ics: string, sourceId: string, w: Window): ImportedEve
 
   for (const [uid, master] of masters) {
     const event = new ICAL.Event(master);
-    for (const ex of exceptions.get(uid) ?? []) event.relateException(ex);
+    const movedIds = new Set<string>(); // occurrences overridden by a RECURRENCE-ID component
+    for (const ex of exceptions.get(uid) ?? []) {
+      event.relateException(ex);
+      movedIds.add(String(ex.getFirstPropertyValue('recurrence-id')));
+    }
 
     if (!event.isRecurring()) {
       if (isCancelled(master)) continue;
@@ -119,12 +129,18 @@ export function parseFeed(ics: string, sourceId: string, w: Window): ImportedEve
 
     if (isCancelled(master)) continue;
     const it = event.iterator();
-    for (let i = 0, next = it.next(); next && i < MAX_OCCURRENCES_PER_SERIES; i++, next = it.next()) {
+    const fromTime = ICAL.Time.fromJSDate(new Date(w.from.getTime() - 2 * 86400000), true); // margin for long events
+    let kept = 0;
+    for (let i = 0, next = it.next(); next && i < MAX_STEPS_PER_SERIES && kept < MAX_OCCURRENCES_PER_SERIES; i++, next = it.next()) {
       if (next.compare(toTime) > 0) break;
+      if (next.compare(fromTime) < 0 && !movedIds.has(next.toString())) continue; // long before the window
       const d = event.getOccurrenceDetails(next);
       if (isCancelled(d.item.component)) continue;
       const ev = toEvent(uid, d.recurrenceId.toString(), cleanTitle(d.item.summary), d.startDate, d.endDate, sourceId);
-      if (inWindow(ev, w)) out.push(ev);
+      if (inWindow(ev, w)) {
+        out.push(ev);
+        kept++;
+      }
     }
   }
 

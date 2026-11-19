@@ -81,7 +81,13 @@ async function fetchFeed(url: string): Promise<string> {
   return new TextDecoder().decode(all);
 }
 
-function depsFor(token: string): Deps {
+/** Error detail that is safe to log: name + message with any URLs (which may be secret links) removed. */
+function describeSafely(e: unknown): string {
+  if (!(e instanceof Error)) return 'unknown';
+  return `${e.name}: ${e.message.replace(/(https?|webcals?):\/\/\S+/gi, '[link]').slice(0, 300)}`;
+}
+
+function depsFor(token: string): Deps & { stage(): string } {
   const user = createClient(SUPABASE_URL, ANON_KEY, {
     global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { persistSession: false, autoRefreshToken: false },
@@ -142,6 +148,7 @@ function depsFor(token: string): Deps {
     }),
     fetchFeed,
     now: () => new Date(),
+    stage: () => stage,
   };
 }
 
@@ -154,9 +161,10 @@ Deno.serve(async (req) => {
   }
   const token = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '');
   if (!token) return json(401, { error: 'Not signed in.' });
+  const deps = depsFor(token);
   try {
     const body = await req.json().catch(() => ({}));
-    return json(200, await handle(depsFor(token), body));
+    return json(200, await handle(deps, body));
   } catch (e) {
     if (e instanceof UserError) return json(e.status, { error: e.message });
     if (e instanceof DbError) {
@@ -166,7 +174,7 @@ Deno.serve(async (req) => {
       }
       return json(500, { error: `Pilot’s database refused the request (step: ${e.stage}, code ${e.code}).` });
     }
-    console.error('calendar function failed:', e instanceof Error ? e.name : 'unknown');
-    return json(500, { error: 'Something went wrong importing calendars.' });
+    console.error(`calendar function failed after step ${deps.stage()}: ${describeSafely(e)}`);
+    return json(500, { error: `Something went wrong importing calendars (after step: ${deps.stage()}). Details are in the function’s logs.` });
   }
 });

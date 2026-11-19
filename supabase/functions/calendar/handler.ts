@@ -98,7 +98,9 @@ async function loadFeed(deps: Deps, url: string, sourceId: string, window: Retur
   if (!looksLikeCalendar(text)) throw new UserError('The link didn’t return a calendar. It may have been reset or made private.');
   try {
     return parseFeed(text, sourceId, window);
-  } catch {
+  } catch (e) {
+    // Name only: parser messages can quote calendar content.
+    console.error(`calendar parse failed: ${e instanceof Error ? e.name : 'unknown'}`);
     throw new UserError('The calendar couldn’t be read.');
   }
 }

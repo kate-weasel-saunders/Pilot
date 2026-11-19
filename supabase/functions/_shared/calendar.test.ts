@@ -73,6 +73,20 @@ describe('mergeCalendars', () => {
   });
 });
 
+describe('long-running repeating events', () => {
+  const ics = (rule: string, start: string) => `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:old-${rule}\r\nDTSTART:${start}\r\nDTEND:${start.replace('T0800', 'T0815')}\r\nRRULE:${rule}\r\nSUMMARY:Old ${rule}\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n`;
+  it('still finds this week’s occurrence of a daily event that started years ago', () => {
+    const got = parseFeed(ics('FREQ=DAILY', '20190101T080000Z'), 'a', W);
+    expect(got.length).toBe(21);
+    expect(got.some((e) => e.starts_at === '2026-11-20T08:00:00.000Z')).toBe(true);
+  });
+  it('handles an hourly rule from years ago without hanging', () => {
+    const t = Date.now();
+    parseFeed(ics('FREQ=HOURLY', '20240101T080000Z'), 'a', W);
+    expect(Date.now() - t).toBeLessThan(5000);
+  });
+});
+
 describe('robustness', () => {
   it('rejects input that isn’t a calendar', () => {
     expect(() => parseFeed('<html>Sign in</html>', 'x', W)).toThrow();
