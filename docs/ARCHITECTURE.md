@@ -52,12 +52,23 @@ iPhone / browser (PWA)
 - **Default rule** (`src/lib/calendar.ts`): pre-tick timed events starting within 12 h, happening now, or ended within 3 h, plus all-day events covering the date. Same-day others are offered unticked. A per-series "don't tick automatically" exists, but nothing is ever unselectable.
 - **Kinds** resolve per series (`event_series`), then the calendar's default kind. Custom kinds use the shared `tags` vocabulary (kind `event`).
 
+**Apple Health: an iOS Shortcut pushes data to the `health` function.** PWAs can't access HealthKit; a native wrapper would need Xcode and a paid developer account.
+- **Shortcut format:** the Shortcut sends simple `|`-separated lines (easier to build in Shortcuts than JSON), parsed tolerantly but with strict ISO dates.
+- **Authentication:** a per-user ingest key; only its SHA-256 is stored.
+- **Deploy:** the function is deployed with `--no-verify-jwt` and authenticates every request itself (ingest key, or the user's JWT for key creation).
+- **Sleep:** stages are condensed into sessions server-side (union of intervals, so overlapping devices count once).
+- **In the app:** workouts, mindful sessions and sleep are mapped to calendar-like items (virtual source `apple-health`), so they reuse the Check In picker and snapshots. Last night's sleep stays pre-ticked for 18 h after waking. HRV and resting HR are daily context for analysis.
+
 ## Security model
 
 - RLS enabled **and forced** on every table. The policies are select/insert/update/delete `to authenticated` where `(select auth.uid()) = user_id`. The `anon` role is revoked. Test 10 in `supabase/tests/rls.test.sql` fails if any future table in `public` lacks RLS.
 - `updated_at` is set by a trigger from the server clock, since the sync cursor depends on it.
 - Only the publishable key ships to the browser. Edge Functions act as the caller (their JWT), so RLS applies.
-- **One deliberate service-role use:** inside the `calendar` function, solely for `calendar_feed_secrets`. That table has RLS forced and no policies or grants for browser roles (tested), and every query is filtered by the verified user id.
+- **Service-role uses:**
+  - inside the `calendar` function, solely for `calendar_feed_secrets`
+  - inside the `health` function, for writing `health_samples` and managing `health_ingest_keys`, always scoped to the key owner / verified user
+
+  Browser roles can only read and delete their own health rows (tested). That table has RLS forced and no policies or grants for browser roles (tested), and every query is filtered by the verified user id.
 - AI will hold `ANTHROPIC_API_KEY` as a function secret.
 - No analytics, no third-party requests besides Supabase, and a strict CSP (`vercel.json`). Errors shown in the UI never include entry text, and the sync engine doesn't log row contents.
 

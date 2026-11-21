@@ -17,7 +17,7 @@ import type { PulledTable, SyncedTable } from './types';
 
 export const SYNCED_TABLES: SyncedTable[] = ['check_ins', 'periods', 'tags', 'calendar_sources', 'event_series'];
 /** Pulled from the server: everything we push, plus server-written calendar events. */
-export const PULLED_TABLES: PulledTable[] = [...SYNCED_TABLES, 'calendar_events'];
+export const PULLED_TABLES: PulledTable[] = [...SYNCED_TABLES, 'calendar_events', 'health_samples'];
 
 type Row = { id: string; updated_at: string } & Record<string, unknown>;
 

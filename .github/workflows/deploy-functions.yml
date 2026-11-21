@@ -28,8 +28,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Deploy calendar function
+      - name: Deploy functions
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
-        run: npx -y supabase@3.2.0 functions deploy calendar --remote="$PROJECT_REF" --use-api --yes
+        run: |
+          npx -y supabase@3.2.0 functions deploy calendar --remote="$PROJECT_REF" --use-api --yes
+          # The Apple Health Shortcut has no Supabase login; the function checks its own ingest keys.
+          npx -y supabase@3.2.0 functions deploy health --remote="$PROJECT_REF" --use-api --no-verify-jwt --yes

@@ -11,6 +11,7 @@ import { Periods } from './screens/Periods';
 import { PeriodForm } from './screens/PeriodForm';
 import { Settings } from './screens/Settings';
 import { Calendars } from './screens/Calendars';
+import { AppleHealth } from './screens/AppleHealth';
 
 function Gate() {
   const { session, loading } = useAuth();
@@ -30,6 +31,7 @@ function Gate() {
         <Route path="periods/:id" element={<PeriodForm />} />
         <Route path="settings" element={<Settings />} />
         <Route path="settings/calendars" element={<Calendars />} />
+        <Route path="settings/health" element={<AppleHealth />} />
         <Route path="*" element={<Today />} />
       </Route>
     </Routes>

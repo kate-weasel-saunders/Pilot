@@ -29,7 +29,10 @@ const exp = Math.floor(Date.parse('2027-06-01T00:00:00Z') / 1000);
 const TOKEN = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: USER.id, exp, role: 'authenticated', aud: 'authenticated', email: USER.email })}.sig`;
 
 // ---- Fake Supabase -------------------------------------------------------
-const tables = { check_ins: new Map(), periods: new Map(), tags: new Map(), calendar_sources: new Map(), calendar_events: new Map(), event_series: new Map() };
+const tables = {
+  check_ins: new Map(), periods: new Map(), tags: new Map(), calendar_sources: new Map(), calendar_events: new Map(), event_series: new Map(),
+  health_samples: new Map(), health_ingest_keys: new Map(),
+};
 
 /** Events the fake `calendar` function "imports": the dentist example. */
 function importedEvents(sourceId) {
@@ -60,6 +63,15 @@ async function fakeSupabase(route) {
   }
   if (url.pathname === '/auth/v1/logout') return route.fulfill({ status: 204 });
   if (url.pathname.startsWith('/auth/v1/')) return json(200, {});
+
+  if (url.pathname === '/functions/v1/health') {
+    assert.equal(req.headers()['authorization'], `Bearer ${TOKEN}`, 'key creation must carry the user token');
+    const body = JSON.parse(req.postData() || '{}');
+    if (body.action !== 'create_key') return json(400, { error: 'Unknown action.' });
+    const id = crypto.randomUUID();
+    tables.health_ingest_keys.set(id, { id, label: body.label, created_at: NOW.toISOString(), last_used_at: null, last_summary: null, updated_at: new Date((clock += 1000)).toISOString() });
+    return json(200, { key: 'pilot_hk_e2eTESTkeyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', label: body.label });
+  }
 
   if (url.pathname === '/functions/v1/calendar') {
     assert.equal(req.headers()['authorization'], `Bearer ${TOKEN}`, 'function calls must carry the user token');
@@ -346,6 +358,43 @@ const step = (s) => console.log(`✓ ${s}`);
     assert.equal(exported.check_ins.length, 1);
     assert.equal(exported.periods.length, 1);
     step('export CSV and JSON');
+
+    // Apple Health: create a key, then data "arrives" from the Shortcut
+    await page.getByRole('link', { name: 'Set up Apple Health' }).click();
+    await page.getByText('How to set up the Shortcut').waitFor();
+    await page.getByRole('button', { name: 'Create a key' }).click();
+    const keyField = page.getByRole('textbox', { name: 'Key', exact: true });
+    await keyField.waitFor();
+    assert.match(await keyField.inputValue(), /^pilot_hk_/);
+    assert.equal(await page.getByRole('textbox', { name: 'Web address (URL)', exact: true }).inputValue(), `${SUPABASE}/functions/v1/health`);
+    await shot(page, '12-apple-health-key');
+    const healthStored = await page.evaluate(() => JSON.stringify(localStorage));
+    assert.ok(!healthStored.includes('pilot_hk_'), 'health key is not stored on the device');
+    await page.getByRole('button', { name: 'I’ve copied it' }).click();
+    const sample = (o) => ({ id: crypto.randomUUID(), unit: 'min', label: null, detail: {}, created_at: NOW.toISOString(), updated_at: new Date((clock += 1000)).toISOString(), ...o });
+    const h = (hours) => new Date(NOW.getTime() + hours * 3600_000).toISOString();
+    for (const r of [
+      sample({ metric: 'workout', label: 'Running', value: 35, starts_at: h(-1.6), ends_at: h(-1), sample_key: 'workout|run' }),
+      sample({ metric: 'sleep', value: 412, starts_at: h(-9), ends_at: h(-1.5), detail: { asleep: 412, deep: 60, rem: 95 }, sample_key: 'sleep|night' }),
+      sample({ metric: 'hrv', value: 48, unit: 'ms', starts_at: h(-5), ends_at: h(-5), sample_key: 'hrv|1' }),
+      sample({ metric: 'workout', label: 'Strength', value: 40, starts_at: h(-30), ends_at: h(-29.3), sample_key: 'workout|yesterday' }),
+    ]) tables.health_samples.set(r.id, r);
+    await page.reload();
+    await page.getByText('Latest received').waitFor();
+    await page.getByText('48 ms', { exact: false }).waitFor();
+    await shot(page, '13-apple-health-latest');
+    await page.getByRole('button', { name: 'Done' }).click();
+    await page.getByRole('button', { name: 'Done' }).click();
+    await page.getByRole('link', { name: 'Check in' }).click();
+    await page.getByRole('button', { name: /Around now/ }).click();
+    assert.ok(await page.getByRole('checkbox', { name: /Running · 35 min/ }).isChecked(), 'run an hour ago pre-ticked');
+    assert.ok(await page.getByRole('checkbox', { name: /Sleep · 6h 52m/ }).isChecked(), 'last night’s sleep pre-ticked');
+    assert.equal(await page.getByRole('checkbox', { name: /Strength/ }).count(), 0, 'yesterday’s workout not offered');
+    assert.equal(await page.getByRole('button', { name: 'Kind for Running · 35 min: Exercise' }).count(), 1, 'workouts default to Exercise');
+    await shot(page, '14-check-in-health');
+    await page.getByRole('button', { name: 'Discard' }).click();
+    await page.getByRole('link', { name: 'Settings' }).click();
+    step('Apple Health: key created (not kept on device); run and last night’s sleep pre-ticked in Check In');
 
     // Sign out wipes the device
     await page.getByRole('button', { name: 'Sign out' }).click();

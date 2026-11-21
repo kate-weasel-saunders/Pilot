@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db';
 import type { CalendarEvent, CalendarSource, CheckIn, EventSeries, Period, Tag } from './types';
 import { buildContext } from '../lib/calendar';
+import { healthToEvents } from '../lib/health';
 
 export const usePeriods = () => useLiveQuery(() => db.periods.orderBy('start_date').toArray(), [], [] as Period[]);
 
@@ -19,8 +20,14 @@ export const useCalendarSources = () => useLiveQuery(() => db.calendar_sources.t
 export function useCalendar() {
   const data = useLiveQuery(
     async () => {
-      const [events, series, sources] = await Promise.all([db.calendar_events.toArray(), db.event_series.toArray(), db.calendar_sources.toArray()]);
-      return { events, ctx: buildContext(series, sources), hasCalendars: sources.length > 0 };
+      const since = new Date(Date.now() - 21 * 86400000).toISOString();
+      const [events, series, sources, health] = await Promise.all([
+        db.calendar_events.toArray(),
+        db.event_series.toArray(),
+        db.calendar_sources.toArray(),
+        db.health_samples.where('starts_at').above(since).toArray(),
+      ]);
+      return { events: [...events, ...healthToEvents(health)], ctx: buildContext(series, sources), hasCalendars: sources.length > 0 };
     },
     [],
     { events: [] as CalendarEvent[], ctx: buildContext([] as EventSeries[], [] as CalendarSource[]), hasCalendars: false },

@@ -211,6 +211,68 @@ do $$ begin
 end $$;
 \echo 'ok 13 - snapshot shape enforced; secrets removed with their calendar'
 
+-- 14. Health: the server role writes; owners can read and delete; nobody else sees anything.
+begin;
+set local role service_role;
+insert into public.health_ingest_keys (id, user_id, key_hash) values
+  ('44444444-4444-4444-8444-444444444444', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', repeat('a', 64));
+insert into public.health_samples (user_id, metric, starts_at, ends_at, value, label, sample_key) values
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'workout', '2026-11-20T07:00:00Z', '2026-11-20T07:35:00Z', 35, 'Running', 'workout|run1'),
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'hrv', '2026-11-20T03:00:00Z', '2026-11-20T03:01:00Z', 48, null, 'hrv|1');
+commit;
+begin;
+select pg_temp.as_user('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') \gset
+do $$ begin
+  assert (select count(*) from public.health_samples) = 2, 'owner reads own health samples';
+  assert (select count(*) from public.health_ingest_keys) = 1, 'owner lists own keys';
+  begin
+    insert into public.health_samples (user_id, metric, starts_at, ends_at, sample_key)
+      values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'workout', now(), now(), 'forged');
+    raise exception 'owner could write health samples directly';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.health_ingest_keys (user_id, key_hash) values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', repeat('b', 64));
+    raise exception 'owner could mint keys directly';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    update public.health_ingest_keys set key_hash = repeat('c', 64);
+    raise exception 'owner could change a key hash';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+commit;
+begin;
+select pg_temp.as_user('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb') \gset
+do $$
+declare n int;
+begin
+  assert (select count(*) from public.health_samples) = 0, 'B must not see A''s health data';
+  assert (select count(*) from public.health_ingest_keys) = 0, 'B must not see A''s keys';
+  delete from public.health_ingest_keys;
+  get diagnostics n = row_count; assert n = 0, 'B must not revoke A''s keys';
+end $$;
+commit;
+begin;
+set local role anon;
+do $$ begin
+  begin
+    perform count(*) from public.health_samples;
+    raise exception 'anon could read health samples';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+commit;
+begin;
+select pg_temp.as_user('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') \gset
+delete from public.health_ingest_keys where id = '44444444-4444-4444-8444-444444444444';
+do $$ begin
+  assert (select count(*) from public.health_ingest_keys) = 0, 'owner can revoke own key';
+end $$;
+commit;
+\echo 'ok 14 - health data: server writes, owner reads/deletes, others nothing'
+
 -- 10. Every table in public has RLS enabled (guards future migrations).
 do $$ begin
   assert not exists (

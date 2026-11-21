@@ -50,7 +50,11 @@ export function EventPicker(p: Props) {
 
   const chosen = [...main, ...extra].filter((r) => p.selected.has(r.key));
   const summary = chosen.length
-    ? chosen.slice(0, 3).map((r) => (r.event?.all_day || r.snapshot?.all_day ? r.title : `${r.title} ${r.time}`)).join(' · ') + (chosen.length > 3 ? ` · +${chosen.length - 3}` : '')
+    ? chosen
+        .slice(0, 3)
+        // All-day events and health items (whose titles already carry a duration) read better without a clock time.
+        .map((r) => (r.event?.all_day || r.snapshot?.all_day || r.series_key.startsWith('health:') ? r.title : `${r.title} ${r.time}`))
+        .join(' · ') + (chosen.length > 3 ? ` · +${chosen.length - 3}` : '')
     : 'None selected';
 
   const row = (r: Row) => {

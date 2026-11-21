@@ -109,10 +109,27 @@ export interface Tag {
   updated_at: string;
 }
 
+export type HealthMetric = 'workout' | 'mindful' | 'sleep' | 'hrv' | 'resting_hr';
+
+/** Imported from Apple Health by the server; read-only on the device. */
+export interface HealthSampleRow {
+  id: string;
+  metric: HealthMetric;
+  starts_at: string;
+  ends_at: string;
+  value: number | null; // hrv ms; resting_hr bpm; sleep/workout/mindful minutes
+  unit: string | null;
+  label: string | null; // workout type
+  detail: Record<string, number>; // sleep: minutes per stage
+  sample_key: string;
+  created_at: string;
+  updated_at: string;
+}
+
 /** Tables the device writes to (via the outbox). */
 export type SyncedTable = 'check_ins' | 'periods' | 'tags' | 'calendar_sources' | 'event_series';
 /** Tables the device reads from the server. */
-export type PulledTable = SyncedTable | 'calendar_events';
+export type PulledTable = SyncedTable | 'calendar_events' | 'health_samples';
 
 export interface RowTypes {
   check_ins: CheckIn;
@@ -121,6 +138,7 @@ export interface RowTypes {
   calendar_sources: CalendarSource;
   event_series: EventSeries;
   calendar_events: CalendarEvent;
+  health_samples: HealthSampleRow;
 }
 
 /** A pending change waiting to reach the server. */

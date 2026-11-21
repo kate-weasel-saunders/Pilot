@@ -1,5 +1,6 @@
 import type { CalendarEvent, CalendarSource, EventRelation, EventSeries, EventSnapshot } from '../data/types';
 import { wallClock } from './time';
+import { HEALTH_SOURCE_ID, healthKind } from './health';
 
 /**
  * Which calendar events belong with a check-in.
@@ -11,6 +12,8 @@ import { wallClock } from './time';
  */
 export const LOOKAHEAD_HOURS = 12;
 export const AFTER_HOURS = 3;
+/** Last night's sleep stays relevant for most of the following day. */
+export const SLEEP_AFTER_HOURS = 18;
 
 const H = 3600_000;
 
@@ -23,7 +26,10 @@ export function buildContext(series: EventSeries[], sources: CalendarSource[]): 
   const bySeries = new Map<string, EventSeries>();
   // If two devices created prefs for the same series, the latest wins.
   for (const s of [...series].sort((a, b) => a.updated_at.localeCompare(b.updated_at))) bySeries.set(s.series_key, s);
-  return { series: bySeries, sources: new Map(sources.map((s) => [s.id, s])) };
+  const map = new Map(sources.map((s) => [s.id, s]));
+  // Apple Health behaves like an always-on calendar.
+  map.set(HEALTH_SOURCE_ID, { id: HEALTH_SOURCE_ID, name: 'Apple Health', default_kind: null, enabled: true, last_refreshed_at: null, last_error: null, created_at: '', updated_at: '' });
+  return { series: bySeries, sources: map };
 }
 
 /** Events from calendars that still exist and are switched on. */
@@ -42,7 +48,7 @@ export function resolveKind(e: Pick<CalendarEvent, 'series_key' | 'source_ids'>,
     const k = ctx.sources.get(id)?.default_kind;
     if (k) return k;
   }
-  return null;
+  return healthKind(e.series_key);
 }
 
 /** How `e` relates to a check-in at `at` on local date `localDate`. */
@@ -60,7 +66,8 @@ export function relationTo(e: CalendarEvent, at: Date, localDate: string): { rel
     return { relation: suggested ? 'upcoming' : 'later', offset_min: offset, suggested };
   }
   if (t <= end) return { relation: 'now', offset_min: 0, suggested: true };
-  const suggested = t - end <= AFTER_HOURS * H;
+  const after = e.series_key === 'health:sleep' ? SLEEP_AFTER_HOURS : AFTER_HOURS;
+  const suggested = t - end <= after * H;
   return { relation: suggested ? 'recent' : 'earlier', offset_min: -Math.round((t - end) / 60000), suggested };
 }
 

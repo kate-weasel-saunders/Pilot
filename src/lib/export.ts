@@ -1,4 +1,4 @@
-import type { CalendarSource, CheckIn, EventSeries, EventSnapshot, Period, Tag } from '../data/types';
+import type { CalendarSource, CheckIn, EventSeries, EventSnapshot, HealthSampleRow, Period, Tag } from '../data/types';
 import { partOfDay, weekdayOf } from './time';
 import { periodsFor } from './periods';
 
@@ -16,6 +16,7 @@ export interface ExportData {
   /** Calendar names and default kinds. Secret links live only on the server and are never exported. */
   calendar_sources?: CalendarSource[];
   event_series?: EventSeries[];
+  health_samples?: HealthSampleRow[];
 }
 
 export function buildJsonExport(data: ExportData, now = new Date()) {
@@ -29,6 +30,7 @@ export function buildJsonExport(data: ExportData, now = new Date()) {
       tags: data.tags,
       calendar_sources: (data.calendar_sources ?? []).map(({ id, name, default_kind, enabled }) => ({ id, name, default_kind, enabled })),
       event_series: data.event_series ?? [],
+      health_samples: [...(data.health_samples ?? [])].sort((a, b) => a.starts_at.localeCompare(b.starts_at)),
     },
     null,
     2,
@@ -67,6 +69,14 @@ export function buildCheckInsCsv(checkIns: CheckIn[], periods: Period[]): string
       c.mood, c.energy, c.anxiety, c.pressure, c.body_tags, c.context_tags, c.need_tags,
       c.thought, c.preceding, (c.events ?? []).map(describeEvent), periodsFor(c, periods).map((p) => p.title), c.created_at, c.updated_at,
     ]);
+  return toCsv(header, rows);
+}
+
+export function buildHealthCsv(samples: HealthSampleRow[]): string {
+  const header = ['metric', 'starts_at', 'ends_at', 'value', 'unit', 'label', 'sleep_asleep_min', 'sleep_deep_min', 'sleep_rem_min', 'sleep_core_min', 'sleep_awake_min'];
+  const rows = [...samples]
+    .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
+    .map((s) => [s.metric, s.starts_at, s.ends_at, s.value, s.unit, s.label, s.detail?.asleep, s.detail?.deep, s.detail?.rem, s.detail?.core, s.detail?.awake]);
   return toCsv(header, rows);
 }
 

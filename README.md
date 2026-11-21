@@ -13,6 +13,7 @@ Pilot is a single-user Progressive Web App: React + TypeScript (Vite), Supabase 
 - History: grouped by day, tap to expand, edit, delete (with confirmation), search, date/tag/period filters
 - Periods: create, edit and delete (overlapping allowed, ongoing allowed)
 - Calendars: import Google (and, if your workplace allows publishing, Outlook/Microsoft 365) calendars via their secret ICS links. Events around each check-in are pre-ticked (starting within 12 hours, happening now, or ended within 3 hours; all-day events on the day). You can untick or add others, and give events a kind (Work, Meeting, Social, Family, Appointment, Travel, Exercise, Personal, or your own); a kind applies to every repeat of that event
+- Apple Health: an iOS Shortcut sends workouts, mindful sessions, sleep, HRV and resting heart rate (see [docs/APPLE_HEALTH.md](docs/APPLE_HEALTH.md)). Recent workouts/mindful sessions and last night's sleep appear under "Around now" in Check In
 - Export: full JSON backup, check-ins CSV (with weekday, part of day, calendar events and periods), periods CSV
 - Installable to the iPhone Home Screen; light and dark mode
 
@@ -43,6 +44,12 @@ Not built yet: trends, AI analysis, Ask My Data, experiments, delete-all-data.
 3. In Pilot: **Settings → Manage calendars**, then paste each calendar's secret link. The screen explains where to find it in Google and Outlook.
 
 The function uses settings Supabase provides automatically, so there are no keys to paste. Your Anthropic key isn't involved.
+
+### 1c. Apple Health (optional)
+
+1. In the SQL Editor, paste and run `supabase/migrations/20261121000000_health.sql`.
+2. The `health` function deploys with the others (the workflow deploys it with `--no-verify-jwt`, because the Shortcut authenticates with its own key).
+3. In Pilot: **Settings → Set up Apple Health** → Create a key → follow the guide on that screen.
 
 ### 2. Run locally
 

@@ -508,3 +508,68 @@ details.more[open] > summary::before {
 .help p + p {
   margin-top: var(--s-2);
 }
+
+/* Apple Health */
+.mono {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 14px !important;
+}
+
+.key-reveal {
+  padding: var(--s-4);
+  border: var(--hairline) solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent-wash);
+}
+
+.source:has(.as-row) {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+.source-summary.as-row {
+  flex: 1;
+}
+
+.guide h3 {
+  margin: var(--s-4) 0 var(--s-2);
+}
+
+.guide-steps {
+  padding-left: 1.4em;
+  margin: 0;
+  display: grid;
+  gap: var(--s-2);
+}
+
+.guide-steps ol {
+  padding-left: 1.2em;
+  margin-top: var(--s-1);
+  display: grid;
+  gap: var(--s-1);
+}
+
+.guide-types {
+  list-style: none;
+  padding: 0;
+  margin: var(--s-3) 0;
+  display: grid;
+  gap: var(--s-3);
+}
+
+.guide-types li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.guide-line {
+  display: block;
+  padding: var(--s-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunk);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}

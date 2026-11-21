@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { CalendarEvent, CalendarSource, CheckIn, EventSeries, OutboxEntry, Period, Tag } from './types';
+import type { CalendarEvent, CalendarSource, CheckIn, EventSeries, HealthSampleRow, OutboxEntry, Period, Tag } from './types';
 
 /**
  * On-device store (IndexedDB). The UI reads exclusively from here, so it works
@@ -13,6 +13,7 @@ export class PilotDB extends Dexie {
   calendar_sources!: Table<CalendarSource, string>;
   calendar_events!: Table<CalendarEvent, string>;
   event_series!: Table<EventSeries, string>;
+  health_samples!: Table<HealthSampleRow, string>;
   outbox!: Table<OutboxEntry, string>;
   meta!: Table<{ key: string; value: unknown }, string>;
 
@@ -34,6 +35,7 @@ export class PilotDB extends Dexie {
       .upgrade((tx) => tx.table('check_ins').toCollection().modify((c) => {
         c.events ??= [];
       }));
+    this.version(3).stores({ health_samples: 'id, starts_at, metric' });
   }
 }
 
@@ -49,7 +51,7 @@ export async function setMeta(d: PilotDB, key: string, value: unknown): Promise<
 
 /** Wipe everything on this device (used on sign-out / account switch). */
 export async function clearLocal(d: PilotDB): Promise<void> {
-  const tables = [d.check_ins, d.periods, d.tags, d.calendar_sources, d.calendar_events, d.event_series, d.outbox, d.meta];
+  const tables = [d.check_ins, d.periods, d.tags, d.calendar_sources, d.calendar_events, d.event_series, d.health_samples, d.outbox, d.meta];
   await d.transaction('rw', tables, async () => {
     await Promise.all(tables.map((t) => t.clear()));
   });

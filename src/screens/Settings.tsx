@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../auth/AuthProvider';
 import { db } from '../data/db';
 import { syncNow, useSyncState } from '../data/syncController';
-import { buildCheckInsCsv, buildJsonExport, buildPeriodsCsv } from '../lib/export';
+import { buildCheckInsCsv, buildHealthCsv, buildJsonExport, buildPeriodsCsv } from '../lib/export';
 import { deliverFile } from '../lib/download';
 import { todayLocal } from '../lib/time';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -18,10 +18,10 @@ export function Settings() {
 
   const load = async () => {
     await syncNow();
-    const [check_ins, periods, tags, calendar_sources, event_series] = await Promise.all([
-      db.check_ins.toArray(), db.periods.toArray(), db.tags.toArray(), db.calendar_sources.toArray(), db.event_series.toArray(),
+    const [check_ins, periods, tags, calendar_sources, event_series, health_samples] = await Promise.all([
+      db.check_ins.toArray(), db.periods.toArray(), db.tags.toArray(), db.calendar_sources.toArray(), db.event_series.toArray(), db.health_samples.toArray(),
     ]);
-    return { check_ins, periods, tags, calendar_sources, event_series };
+    return { check_ins, periods, tags, calendar_sources, event_series, health_samples };
   };
   const stamp = todayLocal();
 
@@ -38,6 +38,14 @@ export function Settings() {
         <div className="stack">
           <p className="muted small">Attach events from Google or Outlook calendars to your check-ins.</p>
           <Link to="/settings/calendars" className="button">Manage calendars</Link>
+        </div>
+      </section>
+
+      <section className="section">
+        <h2 className="section-title">Apple Health</h2>
+        <div className="stack">
+          <p className="muted small">Workouts, mindful sessions, sleep, HRV and resting heart rate, sent by a Shortcut.</p>
+          <Link to="/settings/health" className="button">Set up Apple Health</Link>
         </div>
       </section>
 
@@ -66,6 +74,13 @@ export function Settings() {
             onClick={async () => deliverFile(`pilot-periods-${stamp}.csv`, 'text/csv', buildPeriodsCsv((await load()).periods))}
           >
             Export periods (CSV)
+          </button>
+          <button
+            type="button"
+            className="button"
+            onClick={async () => deliverFile(`pilot-health-${stamp}.csv`, 'text/csv', buildHealthCsv((await load()).health_samples))}
+          >
+            Export health data (CSV)
           </button>
         </div>
       </section>

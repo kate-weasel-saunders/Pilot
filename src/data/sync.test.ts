@@ -10,7 +10,7 @@ type Row = { id: string; updated_at: string } & Record<string, unknown>;
 /** In-memory stand-in for Supabase. `offline` makes every call fail. */
 class FakeRemote implements Remote {
   tables: Record<PulledTable, Map<string, Row>> = {
-    check_ins: new Map(), periods: new Map(), tags: new Map(), calendar_sources: new Map(), event_series: new Map(), calendar_events: new Map(),
+    check_ins: new Map(), periods: new Map(), tags: new Map(), calendar_sources: new Map(), event_series: new Map(), calendar_events: new Map(), health_samples: new Map(),
   };
   offline = false;
   clock = Date.parse('2026-11-18T10:00:00Z');
