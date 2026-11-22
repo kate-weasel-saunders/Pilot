@@ -21,8 +21,12 @@ export function isHealthSeries(seriesKey: string): boolean {
   return seriesKey.startsWith('health:');
 }
 
+/** Series key of active periods built from Exercise Minutes (any brisk activity, not necessarily a workout). */
+export const ACTIVE_SERIES = 'health:workout:exercise';
+
 /** Default kind for a health item (overridable per series like any event). */
 export function healthKind(seriesKey: string): string | null {
+  if (seriesKey === ACTIVE_SERIES) return 'Movement';
   if (seriesKey.startsWith('health:workout')) return 'Exercise';
   if (seriesKey === 'health:mindful') return 'Mindful';
   if (seriesKey === 'health:sleep') return 'Sleep';
@@ -36,7 +40,8 @@ export function healthToEvents(samples: HealthSampleRow[]): CalendarEvent[] {
     const mins = s.value ?? (Date.parse(s.ends_at) - Date.parse(s.starts_at)) / 60000;
     const label = s.label?.trim() || 'Workout';
     const series_key = s.metric === 'workout' ? `health:workout:${label.toLowerCase()}` : `health:${s.metric}`;
-    const title = s.metric === 'workout' ? `${label} · ${formatMinutes(mins)}` : s.metric === 'mindful' ? `Mindful session · ${formatMinutes(mins)}` : `Sleep · ${formatMinutes(mins)}`;
+    const workoutName = label === 'Exercise' ? 'Active' : label;
+    const title = s.metric === 'workout' ? `${workoutName} · ${formatMinutes(mins)}` : s.metric === 'mindful' ? `Mindful session · ${formatMinutes(mins)}` : `Sleep · ${formatMinutes(mins)}`;
     out.push({
       id: s.id,
       event_key: `health:${s.sample_key}`,

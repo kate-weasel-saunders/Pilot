@@ -40,6 +40,11 @@ describe('in Check In', () => {
   it('snapshots carry kind and timing like calendar events', () => {
     expect(snapshotOf(events[0]!, at('2026-11-20T08:00:00Z'), '2026-11-20', ctx)).toMatchObject({ title: 'Running · 35 min', kind: 'Exercise', relation: 'recent', offset_min: -60 });
   });
+  it('shows Exercise Minutes sessions as Active, kind Movement', () => {
+    const [active] = healthToEvents([row({ metric: 'workout', label: 'Exercise', value: 42, starts_at: '2026-11-20T15:00:00Z', ends_at: '2026-11-20T15:45:00Z', sample_key: 'workout|exercise|1' })]);
+    expect(active!.title).toBe('Active · 42 min');
+    expect(resolveKind(active!, ctx)).toBe('Movement');
+  });
   it('lets the user change a health item’s kind per series', () => {
     const c = buildContext([{ id: '1', series_key: 'health:workout:running', kind: 'Personal', title_override: null, hidden: false, created_at: '', updated_at: '1' }], []);
     expect(resolveKind(events[0]!, c)).toBe('Personal');

@@ -60,7 +60,7 @@ describe('ingest', () => {
     const { state, deps } = world();
     const key = await createKey(deps);
     const r = await handleHealth(deps, { token: key, body: lines, contentType: 'text/plain' });
-    expect(r).toEqual({ status: 200, type: 'text', body: 'Pilot received 1 workout, 1 sleep session.' });
+    expect(r).toEqual({ status: 200, type: 'text', body: 'Pilot received 1 workout, 1 sleep session.' }); // a named workout line
     expect([...state.samples.values()].every((s) => s.user_id === 'kate')).toBe(true);
     expect(state.keys[0]!.last_summary).toBe('Pilot received 1 workout, 1 sleep session.');
   });

@@ -110,7 +110,7 @@ describe('one-template Shortcut using Apple Health type names', () => {
 
   it('says what it ignored without treating it as an error', () => {
     expect(summarise(parseLines(lines, NOW))).toBe(
-      'Pilot received 2 workouts, 1 mindful session, 1 sleep session, 1 HRV reading, 1 resting heart rate. Ignored 2 readings of types Pilot doesn’t use (Steps, Wrist Temperature).',
+      'Pilot received 2 active periods, 1 mindful session, 1 sleep session, 1 HRV reading, 1 resting heart rate. Ignored 2 readings of types Pilot doesn’t use (Steps, Wrist Temperature).',
     );
   });
 });

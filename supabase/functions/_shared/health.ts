@@ -20,7 +20,10 @@
  * decimal commas and units glued to numbers. Strict about dates: ISO 8601 with
  * a time zone, because a date without one can't be placed in time.
  * Sleep stage samples are condensed into one summary per night, and
- * Apple Health "Exercise Minutes" into exercise sessions (any watch workout).
+ * Apple Health "Exercise Minutes" into active periods (a run, the gym, a long
+ * brisk walk: anything the watch counted as exercise for 10+ minutes).
+ * Internally these are metric 'workout' with label 'Exercise'; the app shows
+ * them as "Active".
  */
 
 export type Metric = 'workout' | 'mindful' | 'sleep' | 'hrv' | 'resting_hr';
@@ -292,7 +295,9 @@ export function summarise(r: ParseResult): string {
   const count = (m: Metric) => r.samples.filter((s) => s.metric === m).length;
   const parts: string[] = [];
   const add = (n: number, one: string, many: string) => n && parts.push(`${n} ${n === 1 ? one : many}`);
-  add(count('workout'), 'workout', 'workouts');
+  const active = r.samples.filter((s) => s.metric === 'workout' && s.label === 'Exercise').length;
+  add(active, 'active period', 'active periods');
+  add(count('workout') - active, 'workout', 'workouts');
   add(count('mindful'), 'mindful session', 'mindful sessions');
   add(count('sleep'), 'sleep session', 'sleep sessions');
   add(count('hrv'), 'HRV reading', 'HRV readings');

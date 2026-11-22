@@ -44,7 +44,7 @@ export function Settings() {
       <section className="section">
         <h2 className="section-title">Apple Health</h2>
         <div className="stack">
-          <p className="muted small">Workouts, mindful sessions, sleep, HRV and resting heart rate, sent by a Shortcut.</p>
+          <p className="muted small">Active time, mindful sessions, sleep, HRV and resting heart rate, sent by a Shortcut.</p>
           <Link to="/settings/health" className="button">Set up Apple Health</Link>
         </div>
       </section>

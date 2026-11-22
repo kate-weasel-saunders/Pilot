@@ -109,8 +109,8 @@ export function AppleHealth() {
       </div>
 
       <p className="muted small">
-        A Shortcut on your iPhone sends workouts, mindful sessions, sleep, HRV and resting heart rate to Pilot. Recent workouts, mindful sessions
-        and last night’s sleep appear under “Around now” when you check in. Only summaries are sent: no routes, no second-by-second heart rate.
+        A Shortcut on your iPhone sends active time, mindful sessions, sleep, HRV and resting heart rate to Pilot. Recent active periods,
+        mindful sessions and last night’s sleep appear under “Around now” when you check in. Only summaries are sent: no routes, no second-by-second heart rate.
       </p>
 
       {latest && latest.count > 0 && (
@@ -125,8 +125,11 @@ export function AppleHealth() {
             )}
             {latest.workout && (
               <div>
-                <dt>Workout</dt>
-                <dd>{latest.workout.label ?? 'Workout'}, {formatMinutes(latest.workout.value ?? 0)}, {when(latest.workout.starts_at)}</dd>
+                <dt>Active time</dt>
+                <dd>
+                  {latest.workout.label && latest.workout.label !== 'Exercise' ? `${latest.workout.label}, ` : ''}
+                  {formatMinutes(latest.workout.value ?? 0)}, {when(latest.workout.starts_at)}
+                </dd>
               </div>
             )}
             {latest.mindful && (
@@ -216,7 +219,7 @@ export function AppleHealth() {
       <ConfirmDialog
         open={wiping}
         title="Delete all imported health data?"
-        body="Workouts, mindful sessions, sleep, HRV and heart rate received from Apple Health are permanently removed from Pilot. Check-ins keep the items already attached to them. Apple Health itself isn’t affected."
+        body="Active time, mindful sessions, sleep, HRV and heart rate received from Apple Health are permanently removed from Pilot. Check-ins keep the items already attached to them. Apple Health itself isn’t affected."
         confirmLabel="Delete"
         onCancel={() => setWiping(false)}
         onConfirm={async () => {

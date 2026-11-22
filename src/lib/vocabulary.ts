@@ -59,7 +59,7 @@ export const TAG_GROUPS: TagGroup[] = [
 ];
 
 /** Kinds of calendar event. Custom kinds are added via "+ Other" (tags of kind 'event'). */
-export const EVENT_KINDS = ['Work', 'Meeting', 'Social', 'Family', 'Appointment', 'Travel', 'Exercise', 'Mindful', 'Sleep', 'Personal'];
+export const EVENT_KINDS = ['Work', 'Meeting', 'Social', 'Family', 'Appointment', 'Travel', 'Exercise', 'Movement', 'Mindful', 'Sleep', 'Personal'];
 
 const DEFAULTS: Record<TagKind, string[]> = {
   body: TAG_GROUPS[0]!.defaults,

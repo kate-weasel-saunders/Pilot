@@ -65,13 +65,13 @@ export function ShortcutGuide() {
           <em>Combined Text</em>.
         </li>
         <li>
-          Add <strong>Show Result</strong> at the end while testing, then tap ▶︎. You should see something like “Pilot received 2 workouts, 1
-          sleep session, 6 HRV readings…”. If anything was skipped, it says which line and why.
+          Add <strong>Show Result</strong> at the end while testing, then tap ▶︎. You should see something like “Pilot received 2 active periods,
+          1 sleep session, 6 HRV readings…”. If anything was skipped, it says which line and why.
         </li>
       </ol>
       <p className="faint">
-        Workouts arrive as <strong>Exercise</strong> sessions built from Exercise Minutes. They catch every Apple Watch workout (and brisk
-        activity), but Health doesn’t share the workout’s name this way. You can change an item’s kind in Check In. Adding other types to the
+        Exercise Minutes arrive as <strong>Active</strong> periods: any stretch of 10+ minutes your watch counted as exercise, such as a run, the
+        gym or a long brisk walk. Health doesn’t share workout names this way; you can change an item’s kind in Check In. Adding other types to the
         search won’t break anything: Pilot ignores what it doesn’t use. Avoid very frequent ones like Heart Rate or Steps, which make the
         Shortcut slow.
       </p>
