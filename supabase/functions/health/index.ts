@@ -58,9 +58,21 @@ function deps(): HealthDeps {
       check('touchKey', await admin.from('health_ingest_keys').update({ last_used_at: new Date().toISOString(), last_summary }).eq('id', id));
     },
     async upsertSamples(user_id, samples) {
-      const rows = samples.map((s) => ({ ...s, user_id }));
-      for (let i = 0; i < rows.length; i += 500) {
-        check('upsertSamples', await admin.from('health_samples').upsert(rows.slice(i, i + 500), { onConflict: 'user_id,sample_key' }));
+      const save = async (list: typeof samples) => {
+        const rows = list.map((s) => ({ ...s, user_id }));
+        for (let i = 0; i < rows.length; i += 500) {
+          check('upsertSamples', await admin.from('health_samples').upsert(rows.slice(i, i + 500), { onConflict: 'user_id,sample_key' }));
+        }
+      };
+      try {
+        await save(samples);
+      } catch (e) {
+        // 23514 = check violation: the active_minutes migration hasn't been run yet.
+        // Save everything else rather than failing the whole import.
+        if (e instanceof DbError && e.code === '23514' && samples.some((s) => s.metric === 'active_minutes')) {
+          console.error('health: active_minutes not accepted yet (run the 20261122 migration); saving the rest');
+          await save(samples.filter((s) => s.metric !== 'active_minutes'));
+        } else throw e;
       }
     },
     async overlapping(user_id, metric, label, start, end) {
