@@ -27,7 +27,7 @@ export default defineConfig({
       // Only the built app shell is cached. API traffic (Supabase) is never
       // cached by the service worker: personal data lives in IndexedDB only.
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,woff2}'],
         navigateFallback: '/index.html',
         runtimeCaching: [],
       },
@@ -40,8 +40,8 @@ export default defineConfig({
         scope: '/',
         display: 'standalone',
         orientation: 'portrait',
-        background_color: '#f5f1ea',
-        theme_color: '#f5f1ea',
+        background_color: '#fbf3e8',
+        theme_color: '#fbf3e8',
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },

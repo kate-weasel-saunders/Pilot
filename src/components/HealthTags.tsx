@@ -14,7 +14,7 @@ export function HealthTags({ day }: { day: DayHealth | null | undefined }) {
   return (
     <ul className="health-tags" aria-label="Health">
       {tags.map((t) => (
-        <li key={t.key} aria-label={t.label}>
+        <li key={t.key} aria-label={t.label} className={`tag-${t.key}`}>
           {t.text}
         </li>
       ))}
