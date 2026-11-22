@@ -10,7 +10,7 @@ Personal, single-user mood/energy observation PWA. Read `docs/ARCHITECTURE.md` f
 
 ## Code map
 - `src/data/` — row types (mirror SQL), Dexie store, local writes + outbox (`repo.ts`), sync engine (`sync.ts`), controller, hooks
-- `src/lib/` — pure logic: time, periods, vocabulary, filters, export, calendar relevance rule (all unit-tested)
+- `src/lib/` — pure logic: time, periods, vocabulary, filters, export, calendar relevance rule, health mapping + daily summaries (all unit-tested)
 - `supabase/functions/_shared/calendar.ts` — ICS parsing/expansion/dedupe (shared by Deno function + Vitest)
 - `supabase/functions/calendar/` — Edge Function: `handler.ts` (testable logic), `index.ts` (Deno wiring). Type-check: `npx deno check --config supabase/functions/calendar/deno.json supabase/functions/calendar/index.ts`
 - `supabase/functions/_shared/health.ts` + `supabase/functions/health/` — Apple Health ingest (Shortcut lines → samples; sleep condensed). Deployed with `--no-verify-jwt`; authenticates via hashed ingest keys. Guide: `docs/APPLE_HEALTH.md` (keep in sync with `src/components/ShortcutGuide.tsx`)

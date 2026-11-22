@@ -1,8 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db';
-import type { CalendarEvent, CalendarSource, CheckIn, EventSeries, Period, Tag } from './types';
+import type { CalendarEvent, CalendarSource, CheckIn, EventSeries, HealthSampleRow, Period, Tag } from './types';
 import { buildContext } from '../lib/calendar';
 import { healthToEvents } from '../lib/health';
+import { indexByDay } from '../lib/healthDaily';
+import { deviceTimeZone } from '../lib/time';
 
 export const usePeriods = () => useLiveQuery(() => db.periods.orderBy('start_date').toArray(), [], [] as Period[]);
 
@@ -34,3 +36,7 @@ export function useCalendar() {
   );
   return data;
 }
+
+/** Health samples grouped by local day (sleep by wake date). */
+export const useHealthByDay = () =>
+  useLiveQuery(async () => indexByDay(await db.health_samples.toArray(), deviceTimeZone()), [], new Map<string, HealthSampleRow[]>());

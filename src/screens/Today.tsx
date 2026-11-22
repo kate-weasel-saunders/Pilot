@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
-import { useCheckIns, usePendingIds, usePeriods } from '../data/hooks';
+import { useCheckIns, useHealthByDay, usePendingIds, usePeriods } from '../data/hooks';
+import { summarise } from '../lib/healthDaily';
+import { HealthTags } from '../components/HealthTags';
 import { deviceTimeZone, formatDayHeading, wallClock } from '../lib/time';
 import { periodStatus } from '../lib/periods';
 import { DayGroups } from '../components/DayGroups';
@@ -16,6 +18,7 @@ export function Today() {
   const checkIns = useCheckIns();
   const periods = usePeriods();
   const pending = usePendingIds();
+  const health = useHealthByDay();
   const [toast, setToast] = useState(Boolean((location.state as { saved?: boolean } | null)?.saved));
 
   useEffect(() => {
@@ -36,6 +39,10 @@ export function Today() {
         <h1 className="date-title">{dateLine}</h1>
         <span className="spacer" />
         <Link to="/settings" className="button quiet small">Settings</Link>
+      </div>
+
+      <div className="today-health">
+        <HealthTags day={summarise(health.get(now.date))} />
       </div>
 
       {active.length > 0 && (

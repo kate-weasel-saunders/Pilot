@@ -385,6 +385,15 @@ const step = (s) => console.log(`✓ ${s}`);
     await shot(page, '13-apple-health-latest');
     await page.getByRole('button', { name: 'Done' }).click();
     await page.getByRole('button', { name: 'Done' }).click();
+    const todayTags = page.getByRole('list', { name: 'Health' });
+    await todayTags.getByText('Sleep 6h 52m').waitFor();
+    assert.deepEqual(await todayTags.getByRole('listitem').allInnerTexts(), ['Sleep 6h 52m', 'HRV 48 ms', 'Active 35 min']);
+    await shot(page, '15-today-health');
+    await page.getByRole('link', { name: 'History' }).click();
+    const todayCard = page.getByRole('region', { name: 'Today' });
+    await todayCard.getByRole('list', { name: 'Health' }).getByText('Sleep 6h 52m').waitFor();
+    await shot(page, '16-history-day-cards');
+    await page.getByRole('link', { name: 'Today' }).click();
     await page.getByRole('link', { name: 'Check in' }).click();
     await page.getByRole('button', { name: /Around now/ }).click();
     assert.ok(await page.getByRole('checkbox', { name: /Running · 35 min/ }).isChecked(), 'run an hour ago pre-ticked');
@@ -394,7 +403,7 @@ const step = (s) => console.log(`✓ ${s}`);
     await shot(page, '14-check-in-health');
     await page.getByRole('button', { name: 'Discard' }).click();
     await page.getByRole('link', { name: 'Settings' }).click();
-    step('Apple Health: key created (not kept on device); run and last night’s sleep pre-ticked in Check In');
+    step('Apple Health: key created (not kept on device); health tags on Today and History day cards; run and sleep pre-ticked in Check In');
 
     // Sign out wipes the device
     await page.getByRole('button', { name: 'Sign out' }).click();
