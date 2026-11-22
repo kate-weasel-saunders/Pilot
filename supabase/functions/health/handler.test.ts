@@ -127,5 +127,7 @@ describe('extractLines', () => {
     expect(extractLines('{"lines":"a\\nb"}', 'application/json')).toBe('a\nb');
     expect(extractLines('{"lines":["a","b"]}', 'application/json')).toBe('a\nb');
     expect(extractLines('["a","b"]', '')).toBe('a\nb');
+    expect(extractLines('{"Lines":"a\\nb"}', 'application/json')).toBe('a\nb');
+    expect(extractLines('{" LINES ":["a"]}', 'application/json')).toBe('a');
   });
 });

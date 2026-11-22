@@ -55,7 +55,10 @@ export function extractLines(body: string, contentType: string): string {
   try {
     const parsed = JSON.parse(body) as unknown;
     if (Array.isArray(parsed)) return parsed.map(String).join('\n');
-    const lines = (parsed as { lines?: unknown }).lines;
+    // Field name is matched case-insensitively ("lines", "Lines"…): easy to type differently in Shortcuts.
+    const obj = (parsed ?? {}) as Record<string, unknown>;
+    const field = Object.keys(obj).find((k) => k.trim().toLowerCase() === 'lines');
+    const lines = field ? obj[field] : undefined;
     if (Array.isArray(lines)) return lines.map(String).join('\n');
     if (typeof lines === 'string') return lines;
     return '';
