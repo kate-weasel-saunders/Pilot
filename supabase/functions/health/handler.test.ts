@@ -18,6 +18,9 @@ function world() {
     overlapping: async (user_id, metric, label, start, end) =>
       [...state.samples.values()].filter((s) => s.user_id === user_id && s.metric === metric && (!label || s.label === label) && s.starts_at <= end && s.ends_at >= start),
     deleteSamples: async (user_id, keys) => keys.forEach((k) => state.samples.delete(`${user_id}|${k}`)),
+    pruneShortExercise: async (user_id, min) => {
+      for (const [k, s] of state.samples) if (s.user_id === user_id && s.metric === 'workout' && s.label === 'Exercise' && (s.value ?? 0) < min) state.samples.delete(k);
+    },
     randomBytes: (n) => new Uint8Array(randomBytes(n)),
     now: () => new Date('2026-11-21T22:00:00Z'),
   };
@@ -110,7 +113,7 @@ describe('partial re-sends never lose data', () => {
   it('replaces a partial exercise session with the complete one', async () => {
     const { state, deps } = world();
     const key = await createKey(deps);
-    await handleHealth(deps, { token: key, body: 'Exercise Minutes|2026-11-21T07:20:00Z|2026-11-21T07:35:00Z|15|min', contentType: 'text/plain' });
+    await handleHealth(deps, { token: key, body: 'Exercise Minutes|2026-11-21T07:20:00Z|2026-11-21T07:32:00Z|12|min', contentType: 'text/plain' });
     await handleHealth(deps, {
       token: key,
       body: 'Exercise Minutes|2026-11-21T07:10:00Z|2026-11-21T07:20:00Z|10|min\nExercise Minutes|2026-11-21T07:20:00Z|2026-11-21T07:35:00Z|15|min',
@@ -118,6 +121,13 @@ describe('partial re-sends never lose data', () => {
     });
     const sessions = [...state.samples.values()].filter((s) => s.metric === 'workout');
     expect(sessions.map((w) => [w.starts_at, w.value])).toEqual([['2026-11-21T07:10:00.000Z', 25]]);
+  });
+  it('drops short bursts and cleans up any stored before the minimum existed', async () => {
+    const { state, deps } = world();
+    const key = await createKey(deps);
+    state.samples.set('kate|workout|exercise|old', { metric: 'workout', label: 'Exercise', value: 3, starts_at: '2026-11-20T09:00:00.000Z', ends_at: '2026-11-20T09:03:00.000Z', unit: 'min', detail: {}, sample_key: 'workout|exercise|old', user_id: 'kate' });
+    await handleHealth(deps, { token: key, body: 'Exercise Minutes|2026-11-21T12:00:00Z|2026-11-21T12:04:00Z|4|min', contentType: 'text/plain' });
+    expect([...state.samples.values()].filter((s) => s.metric === 'workout')).toEqual([]);
   });
 });
 

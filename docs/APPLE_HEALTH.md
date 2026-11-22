@@ -5,7 +5,7 @@ Web apps can't read Apple Health, so a Shortcut on the iPhone reads it and sends
 ## What's sent
 - **Sleep**, **Heart Rate Variability**, **Resting Heart Rate**, **Mindful Minutes** and **Exercise Minutes** readings for roughly the last 2 days.
 - **Sleep:** condensed by the server into one summary per session (minutes asleep / deep / REM / core / awake / in bed), counting overlaps from several devices once. A stage-less reading counts as plain sleep.
-- **Exercise Minutes:** condensed into exercise sessions (readings under 15 min apart join up). This catches every Apple Watch workout. Shortcuts' Find Health Samples has no generic "Workout" type, so workout *names* aren't available this way.
+- **Exercise Minutes:** condensed into exercise sessions (readings under 15 min apart join up; sessions under 10 minutes, such as a brisk walk to the shops, are dropped). This catches every Apple Watch workout. Shortcuts' Find Health Samples has no generic "Workout" type, so workout *names* aren't available this way.
 - **Other types are ignored** and mentioned in the reply, so a broader search won't break anything.
 - **What's never sent:** GPS routes and second-by-second heart rate.
 - **Re-sends are harmless:** duplicates collapse, and a partial session never replaces a fuller one already stored.

@@ -8,7 +8,7 @@
  * - The Pilot app (signed in): JSON {"action": "create_key", "label"?}. Returns
  *   the new key once; only its SHA-256 hash is stored.
  */
-import { parseLines, summarise, type HealthSample } from '../_shared/health.ts';
+import { MIN_EXERCISE_SESSION_MIN, parseLines, summarise, type HealthSample } from '../_shared/health.ts';
 
 export const KEY_PREFIX = 'pilot_hk_';
 export const MAX_KEYS = 5;
@@ -24,6 +24,8 @@ export interface HealthDeps {
   /** This user's stored sessions of `metric` (and `label`, if given) overlapping [start, end]. */
   overlapping(userId: string, metric: string, label: string | null, start: string, end: string): Promise<{ sample_key: string; starts_at: string; ends_at: string; value: number | null }[]>;
   deleteSamples(userId: string, keys: string[]): Promise<void>;
+  /** Remove this user's Exercise sessions shorter than `minMinutes` (e.g. stored before the minimum existed). */
+  pruneShortExercise(userId: string, minMinutes: number): Promise<void>;
   randomBytes(n: number): Uint8Array;
   now(): Date;
 }
@@ -105,6 +107,7 @@ export async function handleHealth(deps: HealthDeps, req: { token: string | null
     const result = parseLines(extractLines(req.body, req.contentType), deps.now());
     const toSave = await reconcileSessions(deps, key.user_id, result.samples);
     if (toSave.length) await deps.upsertSamples(key.user_id, toSave);
+    await deps.pruneShortExercise(key.user_id, MIN_EXERCISE_SESSION_MIN);
     const summary = summarise(result);
     await deps.touchKey(key.id, summary);
     return text(200, summary);

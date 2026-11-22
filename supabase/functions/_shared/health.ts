@@ -106,6 +106,11 @@ function sleepStage(text: string | null): Stage | null {
 
 /** Readings closer than this belong to the same session. */
 const EXERCISE_GAP_MS = 15 * 60000;
+/**
+ * Apple Watch counts any brisk minute as exercise (a quick walk, a dash for a
+ * train). Only sessions at least this long are treated as exercise.
+ */
+export const MIN_EXERCISE_SESSION_MIN = 10;
 
 /** Merge Exercise Minutes readings into sessions, e.g. one 35-minute run. */
 export function condenseExercise(readings: { start: Date; end: Date; minutes: number }[]): HealthSample[] {
@@ -133,7 +138,7 @@ export function condenseExercise(readings: { start: Date; end: Date; minutes: nu
         sample_key: `workout|exercise|${start.toISOString()}`,
       };
     })
-    .filter((x) => x.value >= 1);
+    .filter((x) => x.value >= MIN_EXERCISE_SESSION_MIN);
 }
 
 interface Interval {

@@ -74,6 +74,9 @@ function deps(): HealthDeps {
         value: r.value === null ? null : Number(r.value),
       }));
     },
+    async pruneShortExercise(user_id, minMinutes) {
+      check('pruneShortExercise', await admin.from('health_samples').delete().eq('user_id', user_id).eq('metric', 'workout').eq('label', 'Exercise').lt('value', minMinutes));
+    },
     async deleteSamples(user_id, keys) {
       for (let i = 0; i < keys.length; i += 100) {
         check('deleteSamples', await admin.from('health_samples').delete().eq('user_id', user_id).in('sample_key', keys.slice(i, i + 100)));
