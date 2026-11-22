@@ -115,6 +115,23 @@ describe('one-template Shortcut using Apple Health type names', () => {
   });
 });
 
+describe('four-field lines (no unit), as built in the Shortcut', () => {
+  it('reads every type without a unit field', () => {
+    const r = parseLines(
+      [
+        'Sleep | 2026-11-21T01:00:00+00:00 | 2026-11-21T03:00:00+00:00 | Core',
+        'Heart Rate Variability | 2026-11-21T03:00:00+00:00 | 2026-11-21T03:01:00+00:00 | 49',
+        'Resting Heart Rate | 2026-11-21T00:00:00+00:00 | 2026-11-21T23:59:00+00:00 | 56',
+        'Mindful Minutes | 2026-11-21T08:00:00+00:00 | 2026-11-21T08:10:00+00:00 | 10',
+        'Exercise Minutes | 2026-11-21T07:10:00+00:00 | 2026-11-21T07:40:00+00:00 | 30',
+      ].join('\n'),
+      NOW,
+    );
+    expect(r.skipped).toEqual([]);
+    expect(r.samples.map((x) => `${x.metric}:${x.value}`).sort()).toEqual(['hrv:49', 'mindful:10', 'resting_hr:56', 'sleep:120', 'workout:30']);
+  });
+});
+
 describe('summarise', () => {
   it('gives a readable result for the Shortcut to show', () => {
     const r = parseLines('workout|2026-11-21T07:10:00Z|2026-11-21T07:45:00Z|||Running\nhrv|bad|bad|40', NOW);

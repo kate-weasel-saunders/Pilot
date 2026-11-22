@@ -11,7 +11,7 @@ Web apps can't read Apple Health, so a Shortcut on the iPhone reads it and sends
 - **Re-sends are harmless:** duplicates collapse, and a partial session never replaces a fuller one already stored.
 
 ## Line format
-One reading per line, `|`-separated: `type | start | end | value | unit`. `type` may be Apple Health's own name (`Heart Rate Variability`) or Pilot's short one (`hrv`). Dates must be ISO 8601 with a time zone.
+One reading per line, `|`-separated: `type | start | end | value` (an optional fifth `unit` field is accepted and not needed). `type` may be Apple Health's own name (`Heart Rate Variability`) or Pilot's short one (`hrv`). Dates must be ISO 8601 with a time zone.
 
 ```
 Sleep                  | 2026-11-20T23:10:00Z | 2026-11-21T00:40:00Z | Core |
@@ -31,7 +31,7 @@ The body can be plain text or JSON `{"lines": "…"}`, sent with `Authorization:
    - add **Find Health Samples** where **All**: *Type is* that type and *Start Date is in the last 2 days*. Shortcuts allows only one type per search.
    - then add **Add to Variable** `Samples`
 3. **Repeat with Each** over `Samples` → inside:
-   - a **Text** action: `Type | Start Date | End Date | Value | Unit`, where each word is the Repeat Item's detail and both dates use Date Format **ISO 8601**
+   - a **Text** action: `Type | Start Date | End Date | Value`, where each word is the Repeat Item's detail and both dates use Date Format **ISO 8601**
    - then **Add to Variable** `Lines`
 4. **Combine Text** (`Lines`, separator New Lines).
 5. **Get Contents of URL**:

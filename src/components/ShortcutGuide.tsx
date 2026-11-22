@@ -40,7 +40,7 @@ export function ShortcutGuide() {
         </li>
         <li>
           Inside the repeat, add a <strong>Text</strong> action containing:
-          <code className="guide-line">Type | Start Date | End Date | Value | Unit</code>
+          <code className="guide-line">Type | Start Date | End Date | Value</code>
           Each word is a detail of the <em>Repeat Item</em>: insert <em>Repeat Item</em>, tap it and choose the detail (Type, Start Date…).
         </li>
         <li>
