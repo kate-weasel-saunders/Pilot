@@ -3,35 +3,38 @@
 Web apps can't read Apple Health, so a Shortcut on the iPhone reads it and sends a summary to Pilot's `health` Edge Function. The same guide is in the app under **Settings → Apple Health**.
 
 ## What's sent
-- **Workouts:** type, start, end (duration derived).
-- **Mindful sessions:** start, end.
-- **Sleep stages:** condensed by the server into one summary per sleep session. That's minutes asleep / deep / REM / core / awake / in bed, counting overlaps from several devices once.
-- **HRV (SDNN, ms)** and **resting heart rate (bpm)** readings.
-
-There are no GPS routes and no second-by-second heart rate. Each run sends the last 2 days, so re-sends are harmless (deduplicated, and a fuller night replaces a partial one).
+- **Sleep**, **Heart Rate Variability**, **Resting Heart Rate**, **Mindful Minutes** and **Exercise Minutes** readings for roughly the last 2 days.
+- **Sleep:** condensed by the server into one summary per session (minutes asleep / deep / REM / core / awake / in bed), counting overlaps from several devices once. A stage-less reading counts as plain sleep.
+- **Exercise Minutes:** condensed into exercise sessions (readings under 15 min apart join up). This catches every Apple Watch workout. Shortcuts' Find Health Samples has no generic "Workout" type, so workout *names* aren't available this way.
+- **Other types are ignored** and mentioned in the reply, so a broader search won't break anything.
+- **What's never sent:** GPS routes and second-by-second heart rate.
+- **Re-sends are harmless:** duplicates collapse, and a partial session never replaces a fuller one already stored.
 
 ## Line format
-One reading per line, `|`-separated: `metric | start | end | value | unit | label`. Dates must be ISO 8601 with a time zone.
+One reading per line, `|`-separated: `type | start | end | value | unit`. `type` may be Apple Health's own name (`Heart Rate Variability`) or Pilot's short one (`hrv`). Dates must be ISO 8601 with a time zone.
 
 ```
-workout    | 2026-11-21T07:10:00Z | 2026-11-21T07:45:00Z |      |     | Running
-mindful    | 2026-11-21T08:00:00Z | 2026-11-21T08:10:00Z
-sleep      | 2026-11-20T23:10:00Z | 2026-11-21T00:40:00Z | Core
-hrv        | 2026-11-21T03:00:00Z | 2026-11-21T03:01:00Z | 48.2 | ms
-resting_hr | 2026-11-21T00:00:00Z | 2026-11-21T23:59:00Z | 58   | bpm
+Sleep                  | 2026-11-20T23:10:00Z | 2026-11-21T00:40:00Z | Core |
+Heart Rate Variability | 2026-11-21T03:00:00Z | 2026-11-21T03:01:00Z | 48.2 | ms
+Resting Heart Rate     | 2026-11-21T00:00:00Z | 2026-11-21T23:59:00Z | 58   | count/min
+Mindful Minutes        | 2026-11-21T08:00:00Z | 2026-11-21T08:10:00Z | 10   | min
+Exercise Minutes       | 2026-11-21T07:10:00Z | 2026-11-21T07:20:00Z | 10   | min
 ```
 
-The body can be plain text or JSON `{"lines": "…"}`, sent with `Authorization: Bearer pilot_hk_…`. The reply is a plain-text summary, including why any line was skipped.
+A `workout | start | end | | | Running` line (with a name) is also accepted, should a future Shortcuts version expose workouts.
+
+The body can be plain text or JSON `{"lines": "…"}`, sent with `Authorization: Bearer pilot_hk_…`. The reply is a plain-text summary.
 
 ## Building the Shortcut ("Send to Pilot")
 1. Shortcuts → **+** → name it **Send to Pilot**.
-2. For each type: **Find Health Samples** (Type; *Start Date is in the last 2 days*; sort by Start Date) → **Repeat with Each** → inside: **Text** with the line below → **Add to Variable** `Lines`.
-   - Heart Rate Variability: `hrv | Start Date | End Date | Value | ms`
-   - Resting Heart Rate: `resting_hr | Start Date | End Date | Value | bpm`
-   - Sleep Analysis: `sleep | Start Date | End Date | Value` (Value is the stage)
-   - Mindful Minutes: `mindful | Start Date | End Date`
-   - Workouts: `workout | Start Date | End Date | | | Type`. Use **Find Workouts** if your Shortcuts has it.
-3. In every Text action, set *Start Date* and *End Date* → Date Format → **ISO 8601** (with time).
+2. **Find Health Samples**:
+   - set it to **Any** of the following are true
+   - add one **Type is** row each for: Sleep, Heart Rate Variability, Resting Heart Rate, Mindful Minutes, Exercise Minutes (picked from the list, not a variable)
+   - don't add a Start Date row
+   - Sort by Start Date, **Newest First**, **Limit 500**
+3. **Repeat with Each** → inside:
+   - a **Text** action: `Type | Start Date | End Date | Value | Unit`, where each word is the Repeat Item's detail and both dates use Date Format **ISO 8601**
+   - then **Add to Variable** `Lines`
 4. **Combine Text** (`Lines`, separator New Lines).
 5. **Get Contents of URL**:
    - the URL from Settings → Apple Health

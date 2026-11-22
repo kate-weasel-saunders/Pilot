@@ -21,8 +21,9 @@ export interface HealthDeps {
   findKey(hash: string): Promise<{ id: string; user_id: string } | null>;
   touchKey(id: string, summary: string): Promise<void>;
   upsertSamples(userId: string, samples: HealthSample[]): Promise<void>;
-  /** Delete this user's sleep sessions overlapping [start, end] except the given keys (re-sent nights replace partial ones). */
-  replaceOverlappingSleep(userId: string, start: string, end: string, keep: string[]): Promise<void>;
+  /** This user's stored sessions of `metric` (and `label`, if given) overlapping [start, end]. */
+  overlapping(userId: string, metric: string, label: string | null, start: string, end: string): Promise<{ sample_key: string; starts_at: string; ends_at: string; value: number | null }[]>;
+  deleteSamples(userId: string, keys: string[]): Promise<void>;
   randomBytes(n: number): Uint8Array;
   now(): Date;
 }
@@ -63,6 +64,33 @@ export function extractLines(body: string, contentType: string): string {
   }
 }
 
+/** Sessions Pilot builds from many readings: a re-send may see more or less of them than last time. */
+const isSession = (s: HealthSample) => s.metric === 'sleep' || (s.metric === 'workout' && s.label === 'Exercise');
+
+/**
+ * For condensed sessions (nights of sleep, exercise sessions): if a stored
+ * session already covers the new one at least as fully, keep the stored one;
+ * otherwise the new one replaces any overlapping, smaller stored sessions.
+ * So re-sending the same data — or only part of it — never loses anything.
+ */
+export async function reconcileSessions(deps: HealthDeps, userId: string, samples: HealthSample[]): Promise<HealthSample[]> {
+  const out: HealthSample[] = [];
+  for (const s of samples) {
+    if (!isSession(s)) {
+      out.push(s);
+      continue;
+    }
+    const others = (await deps.overlapping(userId, s.metric, s.metric === 'workout' ? 'Exercise' : null, s.starts_at, s.ends_at)).filter(
+      (o) => o.sample_key !== s.sample_key,
+    );
+    const covered = others.some((o) => o.starts_at <= s.starts_at && o.ends_at >= s.ends_at && (o.value ?? 0) >= (s.value ?? 0));
+    if (covered) continue;
+    if (others.length) await deps.deleteSamples(userId, others.map((o) => o.sample_key));
+    out.push(s);
+  }
+  return out;
+}
+
 export async function handleHealth(deps: HealthDeps, req: { token: string | null; body: string; contentType: string }): Promise<Reply> {
   const token = req.token ?? '';
 
@@ -72,12 +100,8 @@ export async function handleHealth(deps: HealthDeps, req: { token: string | null
     if (!key) return text(401, 'This Pilot key isn’t valid any more. Create a new one in Pilot → Settings → Apple Health and paste it into the Shortcut.');
     if (req.body.length > MAX_BODY_BYTES) return text(413, 'Too much data in one go. Send fewer days at a time.');
     const result = parseLines(extractLines(req.body, req.contentType), deps.now());
-    if (result.samples.length) {
-      for (const night of result.samples.filter((s) => s.metric === 'sleep')) {
-        await deps.replaceOverlappingSleep(key.user_id, night.starts_at, night.ends_at, [night.sample_key]);
-      }
-      await deps.upsertSamples(key.user_id, result.samples);
-    }
+    const toSave = await reconcileSessions(deps, key.user_id, result.samples);
+    if (toSave.length) await deps.upsertSamples(key.user_id, toSave);
     const summary = summarise(result);
     await deps.touchKey(key.id, summary);
     return text(200, summary);

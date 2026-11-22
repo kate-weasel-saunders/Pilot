@@ -63,10 +63,21 @@ function deps(): HealthDeps {
         check('upsertSamples', await admin.from('health_samples').upsert(rows.slice(i, i + 500), { onConflict: 'user_id,sample_key' }));
       }
     },
-    async replaceOverlappingSleep(user_id, start, end, keep) {
-      let q = admin.from('health_samples').delete().eq('user_id', user_id).eq('metric', 'sleep').lte('starts_at', end).gte('ends_at', start);
-      for (const k of keep) q = q.neq('sample_key', k);
-      check('replaceOverlappingSleep', await q);
+    async overlapping(user_id, metric, label, start, end) {
+      let q = admin.from('health_samples').select('sample_key, starts_at, ends_at, value').eq('user_id', user_id).eq('metric', metric).lte('starts_at', end).gte('ends_at', start);
+      if (label) q = q.eq('label', label);
+      // Normalise timestamps so they compare as strings with the parser's ISO output.
+      return (check('overlapping', await q) ?? []).map((r: { sample_key: string; starts_at: string; ends_at: string; value: number | null }) => ({
+        ...r,
+        starts_at: new Date(r.starts_at).toISOString(),
+        ends_at: new Date(r.ends_at).toISOString(),
+        value: r.value === null ? null : Number(r.value),
+      }));
+    },
+    async deleteSamples(user_id, keys) {
+      for (let i = 0; i < keys.length; i += 100) {
+        check('deleteSamples', await admin.from('health_samples').delete().eq('user_id', user_id).in('sample_key', keys.slice(i, i + 100)));
+      }
     },
     randomBytes: (n) => crypto.getRandomValues(new Uint8Array(n)),
     now: () => new Date(),

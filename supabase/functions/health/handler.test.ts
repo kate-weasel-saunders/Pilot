@@ -15,11 +15,9 @@ function world() {
     findKey: async (h) => state.keys.find((k) => k.key_hash === h) ?? null,
     touchKey: async (id, s) => void (state.keys.find((k) => k.id === id)!.last_summary = s),
     upsertSamples: async (user_id, rows) => rows.forEach((r) => state.samples.set(`${user_id}|${r.sample_key}`, { ...r, user_id })),
-    replaceOverlappingSleep: async (user_id, start, end, keep) => {
-      for (const [k, s] of state.samples) {
-        if (s.user_id === user_id && s.metric === 'sleep' && s.starts_at <= end && s.ends_at >= start && !keep.includes(s.sample_key)) state.samples.delete(k);
-      }
-    },
+    overlapping: async (user_id, metric, label, start, end) =>
+      [...state.samples.values()].filter((s) => s.user_id === user_id && s.metric === metric && (!label || s.label === label) && s.starts_at <= end && s.ends_at >= start),
+    deleteSamples: async (user_id, keys) => keys.forEach((k) => state.samples.delete(`${user_id}|${k}`)),
     randomBytes: (n) => new Uint8Array(randomBytes(n)),
     now: () => new Date('2026-11-21T22:00:00Z'),
   };
@@ -96,6 +94,30 @@ describe('ingest', () => {
     const key = await createKey(deps, 'jwt-kate');
     await handleHealth(deps, { token: key, body: lines, contentType: 'text/plain' });
     expect([...state.samples.values()].map((s) => s.user_id)).toEqual(['kate', 'kate']);
+  });
+});
+
+describe('partial re-sends never lose data', () => {
+  const night = ['sleep|2026-11-20T23:00:00Z|2026-11-21T03:00:00Z|Core', 'sleep|2026-11-21T03:00:00Z|2026-11-21T06:30:00Z|Deep'];
+  it('keeps a full night when a later send only contains its last part', async () => {
+    const { state, deps } = world();
+    const key = await createKey(deps);
+    await handleHealth(deps, { token: key, body: night.join('\n'), contentType: 'text/plain' });
+    await handleHealth(deps, { token: key, body: night[1]!, contentType: 'text/plain' });
+    const nights = [...state.samples.values()].filter((s) => s.metric === 'sleep');
+    expect(nights.map((n) => [n.starts_at, n.value])).toEqual([['2026-11-20T23:00:00.000Z', 450]]);
+  });
+  it('replaces a partial exercise session with the complete one', async () => {
+    const { state, deps } = world();
+    const key = await createKey(deps);
+    await handleHealth(deps, { token: key, body: 'Exercise Minutes|2026-11-21T07:20:00Z|2026-11-21T07:35:00Z|15|min', contentType: 'text/plain' });
+    await handleHealth(deps, {
+      token: key,
+      body: 'Exercise Minutes|2026-11-21T07:10:00Z|2026-11-21T07:20:00Z|10|min\nExercise Minutes|2026-11-21T07:20:00Z|2026-11-21T07:35:00Z|15|min',
+      contentType: 'text/plain',
+    });
+    const sessions = [...state.samples.values()].filter((s) => s.metric === 'workout');
+    expect(sessions.map((w) => [w.starts_at, w.value])).toEqual([['2026-11-21T07:10:00.000Z', 25]]);
   });
 });
 

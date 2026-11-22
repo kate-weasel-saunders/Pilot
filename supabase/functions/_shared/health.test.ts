@@ -65,15 +65,53 @@ describe('parseLines', () => {
       ].join('\n'),
       NOW,
     );
-    expect(r.samples).toEqual([]);
-    expect(r.skipped.map((s) => s.line)).toEqual([1, 2, 3, 4, 5, 6]);
+    // The stage-less sleep line (5) is kept as plain sleep; everything else is skipped or ignored.
+    expect(r.samples.map((x) => x.metric)).toEqual(['sleep']);
+    expect(r.skipped.map((s) => s.line)).toEqual([1, 2, 4, 6]);
     expect(r.skipped[0]!.reason).toMatch(/ISO 8601/);
-    expect(r.skipped[2]!.reason).toMatch(/unknown type "steps"/);
+    expect(r.ignored).toEqual({ steps: 1 });
   });
 
   it('ignores repeated readings within one send', () => {
     const line = 'mindful|2026-11-21T08:00:00Z|2026-11-21T08:10:00Z';
     expect(parseLines(`${line}\n${line}`, NOW).samples).toHaveLength(1);
+  });
+});
+
+describe('one-template Shortcut using Apple Health type names', () => {
+  const lines = [
+    'Sleep|2026-11-20T23:00:00Z|2026-11-21T02:00:00Z|Core|',
+    'Sleep|2026-11-21T02:00:00Z|2026-11-21T06:00:00Z|7.5|hr', // stage not given: still counted as sleep
+    'Heart Rate Variability|2026-11-21T03:00:00Z|2026-11-21T03:01:00Z|51|ms',
+    'Resting Heart Rate|2026-11-21T00:00:00Z|2026-11-21T23:59:00Z|57|count/min',
+    'Mindful Minutes|2026-11-21T08:00:00Z|2026-11-21T08:10:00Z|10|min',
+    // Apple Watch run 07:10-07:45 recorded as Exercise Minutes in chunks
+    'Exercise Minutes|2026-11-21T07:10:00Z|2026-11-21T07:20:00Z|10|min',
+    'Exercise Minutes|2026-11-21T07:20:00Z|2026-11-21T07:35:00Z|15|min',
+    'Exercise Minutes|2026-11-21T07:38:00Z|2026-11-21T07:45:00Z|7|min',
+    // brisk walk in the evening: separate session
+    'Exercise Minutes|2026-11-21T18:00:00Z|2026-11-21T18:12:00Z|12|min',
+    'Steps|2026-11-21T07:10:00Z|2026-11-21T07:20:00Z|1200|count',
+    'Wrist Temperature|2026-11-21T03:00:00Z|2026-11-21T03:00:00Z|0.2|degC',
+  ].join('\n');
+
+  it('maps Health type names and condenses exercise into sessions', () => {
+    const r = parseLines(lines, NOW);
+    expect(r.skipped).toEqual([]);
+    const workouts = r.samples.filter((s) => s.metric === 'workout');
+    expect(workouts.map((w) => [w.label, w.starts_at, w.value])).toEqual([
+      ['Exercise', '2026-11-21T07:10:00.000Z', 32],
+      ['Exercise', '2026-11-21T18:00:00.000Z', 12],
+    ]);
+    expect(r.samples.find((s) => s.metric === 'sleep')).toMatchObject({ value: 420 });
+    expect(r.samples.filter((s) => s.metric === 'hrv' || s.metric === 'resting_hr' || s.metric === 'mindful')).toHaveLength(3);
+    expect(r.ignored).toEqual({ Steps: 1, 'Wrist Temperature': 1 });
+  });
+
+  it('says what it ignored without treating it as an error', () => {
+    expect(summarise(parseLines(lines, NOW))).toBe(
+      'Pilot received 2 workouts, 1 mindful session, 1 sleep session, 1 HRV reading, 1 resting heart rate. Ignored 2 readings of types Pilot doesn’t use (Steps, Wrist Temperature).',
+    );
   });
 });
 

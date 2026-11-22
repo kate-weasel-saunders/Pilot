@@ -4,7 +4,11 @@
  *
  * One reading per line, fields separated by "|":
  *
- *   metric | start | end | value | unit | label
+ *   type | start | end | value | unit | label
+ *
+ * `type` can be Pilot's short name or Apple Health's own name, so a Shortcut
+ * can use one template for every sample: "Type | Start | End | Value | Unit".
+ * Types Pilot doesn't use (steps, wrist temperature…) are counted and ignored.
  *
  *   workout   | 2026-11-21T07:10:00Z | 2026-11-21T07:45:00Z |      |     | Running
  *   mindful   | 2026-11-21T08:00:00Z | 2026-11-21T08:10:00Z
@@ -15,7 +19,8 @@
  * Forgiving about wording ("Heart Rate Variability", "Mindful Minutes"),
  * decimal commas and units glued to numbers. Strict about dates: ISO 8601 with
  * a time zone, because a date without one can't be placed in time.
- * Sleep stage samples are condensed into one summary per night.
+ * Sleep stage samples are condensed into one summary per night, and
+ * Apple Health "Exercise Minutes" into exercise sessions (any watch workout).
  */
 
 export type Metric = 'workout' | 'mindful' | 'sleep' | 'hrv' | 'resting_hr';
@@ -39,6 +44,8 @@ export interface Skipped {
 export interface ParseResult {
   samples: HealthSample[];
   skipped: Skipped[];
+  /** Readings of types Pilot doesn't use, by type name. */
+  ignored: Record<string, number>;
   /** Raw sleep stage readings received (before condensing into nights). */
   sleepReadings: number;
 }
@@ -46,12 +53,16 @@ export interface ParseResult {
 export const MAX_LINES = 5000;
 const DAY = 86400000;
 
-const METRIC_ALIASES: Record<string, Metric> = {
-  workout: 'workout', workouts: 'workout', exercise: 'workout',
+type LineKind = Metric | 'exercise';
+
+const METRIC_ALIASES: Record<string, LineKind> = {
+  workout: 'workout', workouts: 'workout',
+  exercise: 'exercise', 'exercise minutes': 'exercise', 'exercise time': 'exercise', 'apple exercise time': 'exercise',
   mindful: 'mindful', mindfulness: 'mindful', 'mindful minutes': 'mindful', 'mindful session': 'mindful', meditation: 'mindful',
   sleep: 'sleep', 'sleep analysis': 'sleep',
   hrv: 'hrv', 'heart rate variability': 'hrv',
   resting_hr: 'resting_hr', 'resting hr': 'resting_hr', 'resting heart rate': 'resting_hr', resting: 'resting_hr',
+  'heart rate variability sdnn': 'hrv', 'hrv sdnn': 'hrv', 'mindfulness minutes': 'mindful',
 };
 
 const ISO = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})$/;
@@ -89,6 +100,40 @@ function sleepStage(text: string | null): Stage | null {
   if (t.includes('bed')) return 'in_bed';
   if (t.includes('asleep') || t.includes('sleep')) return 'asleep';
   return null;
+}
+
+// ---- Exercise --------------------------------------------------------------
+
+/** Readings closer than this belong to the same session. */
+const EXERCISE_GAP_MS = 15 * 60000;
+
+/** Merge Exercise Minutes readings into sessions, e.g. one 35-minute run. */
+export function condenseExercise(readings: { start: Date; end: Date; minutes: number }[]): HealthSample[] {
+  const sorted = [...readings].sort((a, b) => a.start.getTime() - b.start.getTime());
+  const sessions: (typeof sorted)[] = [];
+  let end = -Infinity;
+  for (const r of sorted) {
+    if (r.start.getTime() - end > EXERCISE_GAP_MS) sessions.push([]);
+    sessions.at(-1)!.push(r);
+    end = Math.max(end, r.end.getTime());
+  }
+  return sessions
+    .map((s) => {
+      const start = new Date(Math.min(...s.map((r) => r.start.getTime())));
+      const stop = new Date(Math.max(...s.map((r) => r.end.getTime())));
+      const total = Math.min(s.reduce((n, r) => n + r.minutes, 0), Math.max(1, minutes(start, stop)));
+      return {
+        metric: 'workout' as const,
+        starts_at: start.toISOString(),
+        ends_at: stop.toISOString(),
+        value: Math.round(total),
+        unit: 'min',
+        label: 'Exercise',
+        detail: {},
+        sample_key: `workout|exercise|${start.toISOString()}`,
+      };
+    })
+    .filter((x) => x.value >= 1);
 }
 
 interface Interval {
@@ -155,6 +200,8 @@ export function parseLines(text: string, now = new Date()): ParseResult {
   const samples: HealthSample[] = [];
   const skipped: Skipped[] = [];
   const sleep: { stage: Stage; start: Date; end: Date }[] = [];
+  const exercise: { start: Date; end: Date; minutes: number }[] = [];
+  const ignored: Record<string, number> = {};
   const lines = text.split(/\r?\n/);
   const earliest = now.getTime() - 400 * DAY;
   const latest = now.getTime() + DAY;
@@ -167,7 +214,12 @@ export function parseLines(text: string, now = new Date()): ParseResult {
     const f = line.split('|').map((x) => x.trim());
     const metric = METRIC_ALIASES[(f[0] ?? '').toLowerCase().replace(/_/g, ' ').replace(/\s+/g, ' ').trim()]
       ?? METRIC_ALIASES[(f[0] ?? '').toLowerCase()];
-    if (!metric) return skipped.push({ line: n, reason: `unknown type "${clean(f[0], 30) ?? ''}"` });
+    if (!metric) {
+      // A type Pilot doesn't use (e.g. a catch-all Shortcut sending Steps): note it, don't complain.
+      const name = clean(f[0], 40) ?? 'unknown';
+      ignored[name] = (ignored[name] ?? 0) + 1;
+      return;
+    }
     const start = parseDate(f[1] ?? '');
     const end = parseDate(f[2] || f[1] || '');
     if (!start || !end) return skipped.push({ line: n, reason: 'dates must be ISO 8601 with a time zone (in Shortcuts, set the date format to ISO 8601)' });
@@ -175,9 +227,18 @@ export function parseLines(text: string, now = new Date()): ParseResult {
     if (start.getTime() < earliest || start.getTime() > latest) return skipped.push({ line: n, reason: 'date out of range' });
     const span = end.getTime() - start.getTime();
 
+    if (metric === 'exercise') {
+      if (span > DAY) return skipped.push({ line: n, reason: 'longer than 24 hours' });
+      const v = parseNumber(f[3]);
+      // Exercise Minutes carry their minutes as the value; fall back to the span.
+      const mins = v !== null && v > 0 && v <= span / 60000 + 1 ? v : span / 60000;
+      exercise.push({ start, end, minutes: mins });
+      return;
+    }
+
     if (metric === 'sleep') {
-      const stage = sleepStage(clean(f[5], 40) ?? clean(f[3], 40));
-      if (!stage) return skipped.push({ line: n, reason: 'sleep reading without a stage (Core, Deep, REM, Awake, In Bed…)' });
+      // If the stage isn't recognisable (iOS versions differ), count it as sleep rather than lose it.
+      const stage = sleepStage(clean(f[5], 40)) ?? sleepStage(clean(f[3], 40)) ?? 'asleep';
       if (span > 16 * 3600000) return skipped.push({ line: n, reason: 'sleep reading longer than 16 hours' });
       sleep.push({ stage, start, end });
       return;
@@ -218,7 +279,7 @@ export function parseLines(text: string, now = new Date()): ParseResult {
   });
 
   if (lines.length > MAX_LINES) skipped.push({ line: MAX_LINES + 1, reason: `only the first ${MAX_LINES} lines are read` });
-  return { samples: [...samples, ...condenseSleep(sleep)], skipped, sleepReadings: sleep.length };
+  return { samples: [...samples, ...condenseSleep(sleep), ...condenseExercise(exercise)], skipped, ignored, sleepReadings: sleep.length };
 }
 
 /** A short, human summary for the Shortcut to show, e.g. "2 workouts, 1 night of sleep, 6 HRV readings". */
@@ -231,7 +292,12 @@ export function summarise(r: ParseResult): string {
   add(count('sleep'), 'sleep session', 'sleep sessions');
   add(count('hrv'), 'HRV reading', 'HRV readings');
   add(count('resting_hr'), 'resting heart rate', 'resting heart rates');
-  let msg = parts.length ? `Pilot received ${parts.join(', ')}.` : 'Pilot received the request but found no readings.';
+  let msg = parts.length ? `Pilot received ${parts.join(', ')}.` : 'Pilot received the request but found no readings it uses.';
+  const ignoredTypes = Object.keys(r.ignored);
+  if (ignoredTypes.length) {
+    const total = Object.values(r.ignored).reduce((a, b) => a + b, 0);
+    msg += ` Ignored ${total} reading${total === 1 ? '' : 's'} of types Pilot doesn’t use (${ignoredTypes.slice(0, 3).join(', ')}${ignoredTypes.length > 3 ? '…' : ''}).`;
+  }
   if (r.skipped.length) {
     const first = r.skipped[0]!;
     msg += ` Skipped ${r.skipped.length} line${r.skipped.length === 1 ? '' : 's'} (line ${first.line}: ${first.reason}).`;
