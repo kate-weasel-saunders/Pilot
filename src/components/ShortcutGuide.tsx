@@ -1,8 +1,8 @@
 /**
  * Step-by-step guide for building the "Send to Pilot" Shortcut. Kept in sync
- * with docs/APPLE_HEALTH.md. One search for all types, one loop, one line
- * template; the server recognises Apple Health's own type names and ignores
- * anything it doesn't use.
+ * with docs/APPLE_HEALTH.md. One search per type (Shortcuts allows only one
+ * type per search) collected into one list, one loop, one line template; the
+ * server recognises Apple Health's own type names and ignores what it doesn't use.
  */
 
 const TYPES = ['Sleep', 'Heart Rate Variability', 'Resting Heart Rate', 'Mindful Minutes', 'Exercise Minutes'];
@@ -11,8 +11,8 @@ export function ShortcutGuide() {
   return (
     <div className="guide small">
       <p className="muted">
-        About 10 minutes, once. You’ll build one Shortcut called <strong>Send to Pilot</strong> with a single search, then set it to run
-        automatically. Names in <em>italics</em> are variables you insert by tapping; the <code>|</code> characters are typed as they are.
+        About 15 minutes, once. You’ll build one Shortcut called <strong>Send to Pilot</strong>: five searches feeding one list and one
+        loop, then set it to run automatically. Names in <em>italics</em> are variables you insert by tapping; the <code>|</code> characters are typed as they are.
       </p>
 
       <h3 className="section-title">Build the Shortcut</h3>
@@ -21,26 +21,27 @@ export function ShortcutGuide() {
           Open <strong>Shortcuts</strong> → <strong>+</strong> → name it <strong>Send to Pilot</strong>.
         </li>
         <li>
-          Add <strong>Find Health Samples</strong>. Tap <strong>All</strong> so it reads <strong>Any</strong> of the following are true. Then add
-          one <strong>Type is</strong> row for each of these, choosing the type from the list (don’t insert a variable):
+          Add <strong>Find Health Samples</strong>, where <strong>All</strong> of the following are true: <strong>Type is</strong>{' '}
+          <em>Sleep</em> and <strong>Start Date is in the last 2 days</strong>. (Each search can only look for one type.)
+        </li>
+        <li>
+          Right after it: <strong>Add to Variable</strong> → variable name <strong>Samples</strong>.
+        </li>
+        <li>
+          Repeat steps 2–3 for each of the other types: one search plus <strong>Add to Variable → Samples</strong> each time:
           <ul className="guide-type-list">
-            {TYPES.map((t) => (
+            {TYPES.slice(1).map((t) => (
               <li key={t}>{t}</li>
             ))}
           </ul>
-          Don’t add a Start Date row here: with “Any”, it would match every type. Leave Unit and Group by as <em>None</em>.
         </li>
         <li>
-          In the same action: Sort by <strong>Start Date</strong>, Order <strong>Newest First</strong>, turn <strong>Limit</strong> on and set it
-          to <strong>500</strong>. That covers the last couple of days.
-        </li>
-        <li>
-          Add <strong>Repeat with Each</strong> (it uses the Health Samples from the step above).
+          Add <strong>Repeat with Each</strong> and tap its input to choose the <strong>Samples</strong> variable.
         </li>
         <li>
           Inside the repeat, add a <strong>Text</strong> action containing:
           <code className="guide-line">Type | Start Date | End Date | Value | Unit</code>
-          Each word is the <em>Repeat Item</em>’s detail: insert <em>Repeat Item</em>, tap it, and choose the detail (Type, Start Date…).
+          Each word is a detail of the <em>Repeat Item</em>: insert <em>Repeat Item</em>, tap it and choose the detail (Type, Start Date…).
         </li>
         <li>
           <strong>Dates must be ISO 8601.</strong> Tap the inserted <em>Start Date</em> → <em>Date Format</em> → <strong>ISO 8601</strong> (turn

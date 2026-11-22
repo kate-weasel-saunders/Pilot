@@ -27,12 +27,10 @@ The body can be plain text or JSON `{"lines": "…"}`, sent with `Authorization:
 
 ## Building the Shortcut ("Send to Pilot")
 1. Shortcuts → **+** → name it **Send to Pilot**.
-2. **Find Health Samples**:
-   - set it to **Any** of the following are true
-   - add one **Type is** row each for: Sleep, Heart Rate Variability, Resting Heart Rate, Mindful Minutes, Exercise Minutes (picked from the list, not a variable)
-   - don't add a Start Date row
-   - Sort by Start Date, **Newest First**, **Limit 500**
-3. **Repeat with Each** → inside:
+2. For each type (Sleep, Heart Rate Variability, Resting Heart Rate, Mindful Minutes, Exercise Minutes):
+   - add **Find Health Samples** where **All**: *Type is* that type and *Start Date is in the last 2 days*. Shortcuts allows only one type per search.
+   - then add **Add to Variable** `Samples`
+3. **Repeat with Each** over `Samples` → inside:
    - a **Text** action: `Type | Start Date | End Date | Value | Unit`, where each word is the Repeat Item's detail and both dates use Date Format **ISO 8601**
    - then **Add to Variable** `Lines`
 4. **Combine Text** (`Lines`, separator New Lines).
