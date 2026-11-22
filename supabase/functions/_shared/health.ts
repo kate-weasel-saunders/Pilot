@@ -57,7 +57,8 @@ export interface ParseResult {
 export const MAX_LINES = 5000;
 const DAY = 86400000;
 
-type LineKind = Metric | 'exercise';
+/** What a line can name. active_minutes is derived from Exercise Minutes, never named directly. */
+type LineKind = Exclude<Metric, 'active_minutes'> | 'exercise';
 
 const METRIC_ALIASES: Record<string, LineKind> = {
   workout: 'workout', workouts: 'workout',
