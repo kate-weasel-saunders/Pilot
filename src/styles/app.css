@@ -345,3 +345,13 @@ dialog.confirm .row {
   text-decoration-color: var(--rule);
   text-underline-offset: 3px;
 }
+
+.error-details {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--surface-sunk);
+  padding: var(--s-3);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  margin: 0;
+}

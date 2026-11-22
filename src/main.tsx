@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { setupServiceWorker } from './lib/pwa';
 import { applyTheme, getThemePref } from './lib/theme';
 import '@fontsource-variable/plus-jakarta-sans';
@@ -16,6 +17,8 @@ setupServiceWorker();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 );
