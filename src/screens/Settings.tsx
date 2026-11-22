@@ -8,6 +8,37 @@ import { buildCheckInsCsv, buildHealthCsv, buildJsonExport, buildPeriodsCsv } fr
 import { deliverFile } from '../lib/download';
 import { todayLocal } from '../lib/time';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { getThemePref, setThemePref, type ThemePref } from '../lib/theme';
+
+const THEMES: { value: ThemePref; label: string }[] = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
+
+function AppearancePicker() {
+  const [pref, setPref] = useState<ThemePref>(getThemePref);
+  return (
+    <div className="chip-list" role="radiogroup" aria-label="Appearance">
+      {THEMES.map((t) => (
+        <button
+          key={t.value}
+          type="button"
+          role="radio"
+          aria-checked={pref === t.value}
+          aria-pressed={pref === t.value}
+          className="chip"
+          onClick={() => {
+            setThemePref(t.value);
+            setPref(t.value);
+          }}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function Settings() {
   const { session, signOut } = useAuth();
@@ -32,6 +63,14 @@ export function Settings() {
         <span className="spacer" />
         <button type="button" className="button quiet" onClick={() => navigate(-1)}>Done</button>
       </div>
+
+      <section className="section">
+        <h2 className="section-title">Appearance</h2>
+        <div className="stack">
+          <AppearancePicker />
+          <p className="faint small">System follows your phone’s light or dark mode. Saved on this device.</p>
+        </div>
+      </section>
 
       <section className="section">
         <h2 className="section-title">Calendars</h2>

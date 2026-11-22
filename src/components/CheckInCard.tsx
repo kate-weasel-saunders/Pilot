@@ -4,6 +4,7 @@ import type { CheckIn, Period } from '../data/types';
 import { formatTime, deviceTimeZone } from '../lib/time';
 import { levelLabel, MEASURES, TAG_GROUPS } from '../lib/vocabulary';
 import { relationLabel, timeLabel } from '../lib/calendar';
+import { pressureReason } from '../lib/extra';
 import { periodsFor } from '../lib/periods';
 import { removeCheckIn } from '../data/actions';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -34,10 +35,18 @@ export function CheckInCard({ c, periods, pending }: { c: CheckIn; periods: Peri
       {open && (
         <div className="card-detail">
           <dl className="detail-list">
-            {MEASURES.filter((m) => c[m.key] != null).map((m) => (
+            {MEASURES.filter((m) => c[m.key] != null || (m.key === 'pressure' && pressureReason(c))).map((m) => (
               <div key={m.key}>
                 <dt>{m.label}</dt>
-                <dd>{levelLabel(m.key, c[m.key])}</dd>
+                <dd>
+                  {levelLabel(m.key, c[m.key])}
+                  {m.key === 'pressure' && pressureReason(c) && (
+                    <span className="faint">
+                      {c[m.key] != null ? ' · ' : ''}
+                      {pressureReason(c)}
+                    </span>
+                  )}
+                </dd>
               </div>
             ))}
             {TAG_GROUPS.filter((g) => c[g.column].length > 0).map((g) => (

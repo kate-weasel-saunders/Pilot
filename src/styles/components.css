@@ -695,3 +695,14 @@ details.more[open] > summary::before {
 .health-tags .tag-rhr { background: var(--hue-rose-bg); color: var(--hue-rose-ink); }
 .health-tags .tag-active { background: var(--hue-peach-bg); color: var(--hue-peach-ink); }
 .health-tags .tag-mindful { background: var(--hue-sky-bg); color: var(--hue-sky-ink); }
+
+/* Optional reason under a scale (Pressure / demand) */
+.scale-reason {
+  margin-top: calc(-1 * var(--s-2));
+  padding-bottom: var(--s-4);
+  border-bottom: var(--hairline) solid var(--rule);
+}
+
+.scale:has(+ .scale-reason) {
+  border-bottom: 0;
+}

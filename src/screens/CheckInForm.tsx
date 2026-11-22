@@ -10,6 +10,7 @@ import { newId } from '../data/repo';
 import type { CalendarEvent, CheckIn, EventSnapshot, Score, Tag, TagKind } from '../data/types';
 import { deviceTimeZone, formatDayHeading, instantFromWallClock, localFields, wallClock } from '../lib/time';
 import { chipsFor, MEASURES, TAG_GROUPS } from '../lib/vocabulary';
+import { pressureReason, withPressureReason } from '../lib/extra';
 import { ScaleInput } from '../components/ScaleInput';
 import { ChipGroup } from '../components/ChipGroup';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -20,6 +21,7 @@ const DRAFT_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 type Fields = Pick<CheckIn, 'mood' | 'energy' | 'anxiety' | 'pressure' | 'body_tags' | 'context_tags' | 'need_tags'> & {
   thought: string;
   preceding: string;
+  pressureReason: string;
 };
 
 interface Draft {
@@ -36,7 +38,7 @@ interface Draft {
 
 const emptyFields = (): Fields => ({
   mood: null, energy: null, anxiety: null, pressure: null,
-  body_tags: [], context_tags: [], need_tags: [], thought: '', preceding: '',
+  body_tags: [], context_tags: [], need_tags: [], thought: '', preceding: '', pressureReason: '',
 });
 
 function newDraft(): Draft {
@@ -50,7 +52,7 @@ function draftFrom(c: CheckIn): Draft {
     fields: {
       mood: c.mood, energy: c.energy, anxiety: c.anxiety, pressure: c.pressure,
       body_tags: c.body_tags, context_tags: c.context_tags, need_tags: c.need_tags,
-      thought: c.thought ?? '', preceding: c.preceding ?? '',
+      thought: c.thought ?? '', preceding: c.preceding ?? '', pressureReason: pressureReason(c) ?? '',
     },
     date: c.local_date,
     time: c.local_time.slice(0, 5),
@@ -65,6 +67,7 @@ const hasContent = (f: Fields) =>
   [f.mood, f.energy, f.anxiety, f.pressure].some((v) => v != null) ||
   f.body_tags.length + f.context_tags.length + f.need_tags.length > 0 ||
   f.thought.trim() !== '' ||
+  (f.pressureReason ?? '').trim() !== '' ||
   f.preceding.trim() !== '';
 
 /** Loads the starting state (existing entry or saved draft), then renders the form. */
@@ -181,7 +184,7 @@ function Form({ initial, existing }: { initial: Draft; existing: CheckIn | null 
       thought: f.thought.trim() || null,
       preceding: f.preceding.trim() || null,
       events: finalEvents(new Date(local.observed_at), local.local_date),
-      extra: existing?.extra ?? {},
+      extra: withPressureReason(existing?.extra ?? {}, f.pressureReason ?? ''),
       created_at: existing?.created_at ?? new Date().toISOString(),
       updated_at: '',
     };
@@ -231,7 +234,22 @@ function Form({ initial, existing }: { initial: Draft; existing: CheckIn | null 
 
       <div>
         {MEASURES.map((m) => (
-          <ScaleInput key={m.key} measure={m} value={f[m.key]} onChange={(v: Score | null) => setField(m.key, v)} />
+          <div key={m.key}>
+            <ScaleInput measure={m} value={f[m.key]} onChange={(v: Score | null) => setField(m.key, v)} />
+            {/* Optional reason, offered once there's some pressure (or if one was already written). */}
+            {m.key === 'pressure' && ((f.pressure ?? 0) > 1 || (f.pressureReason ?? '') !== '') && (
+              <label className="field scale-reason">
+                <span className="visually-hidden">What’s the pressure coming from? (optional)</span>
+                <input
+                  value={f.pressureReason ?? ''}
+                  maxLength={500}
+                  placeholder="What’s it coming from? (optional)"
+                  enterKeyHint="done"
+                  onChange={(e) => setField('pressureReason', e.target.value)}
+                />
+              </label>
+            )}
+          </div>
         ))}
       </div>
 

@@ -196,6 +196,7 @@ const step = (s) => console.log(`✓ ${s}`);
     await scale('Energy').getByRole('radio', { name: 'Empty', exact: true }).click();
     await scale('Anxiety / tension').getByRole('radio', { name: 'Tense', exact: true }).click();
     await scale('Pressure / demand').getByRole('radio', { name: 'A lot', exact: true }).click();
+    await page.getByLabel('What’s the pressure coming from? (optional)').fill('Quarterly deadline');
     await page.getByLabel('What’s going through your head?').fill('Can’t face this meeting.');
     await page.getByRole('button', { name: 'Heavy' }).click();
     await page.getByRole('button', { name: 'Work', exact: true }).click();
@@ -237,6 +238,7 @@ const step = (s) => console.log(`✓ ${s}`);
     assert.deepEqual(saved.context_tags, ['Work']);
     assert.deepEqual(saved.need_tags, ['Rest']);
     assert.equal(saved.preceding, 'Calendar reminder');
+    assert.equal(saved.extra.pressure_reason, 'Quarterly deadline');
     assert.equal(saved.timezone, 'Europe/London');
     assert.match(saved.local_date, /^\d{4}-\d{2}-\d{2}$/);
     await waitFor(() => [...tables.tags.values()].some((t) => t.label === 'Jaw clenched'), 'custom tag synced');
@@ -259,6 +261,7 @@ const step = (s) => console.log(`✓ ${s}`);
     await dayToggle.click();
     await page.getByText('Can’t face this meeting.').click();
     await page.getByText('Calendar reminder').waitFor();
+    await page.getByText('· Quarterly deadline').waitFor();
     await page.locator('.plain-list').getByText(/Dentist/).waitFor();
     await shot(page, '05-history-expanded');
     await page.getByRole('link', { name: 'Edit' }).click();
@@ -408,6 +411,22 @@ const step = (s) => console.log(`✓ ${s}`);
     await page.getByRole('button', { name: 'Discard' }).click();
     await page.getByRole('link', { name: 'Settings' }).click();
     step('Apple Health: key created (not kept on device); health tags on Today and History day cards; run and sleep pre-ticked in Check In');
+
+    // Appearance: force dark, survives a reload, back to system
+    const appearance = page.getByRole('radiogroup', { name: 'Appearance' });
+    await appearance.getByRole('radio', { name: 'Dark' }).click();
+    const theme = () => page.evaluate(() => [document.documentElement.dataset.theme ?? 'system', getComputedStyle(document.body).backgroundColor]);
+    assert.deepEqual(await theme(), ['dark', 'rgb(26, 21, 17)']);
+    await shot(page, '17-settings-dark');
+    await page.reload();
+    await appearance.waitFor();
+    assert.equal((await theme())[0], 'dark', 'theme choice persists');
+    assert.equal(await appearance.getByRole('radio', { name: 'Dark' }).getAttribute('aria-checked'), 'true');
+    await appearance.getByRole('radio', { name: 'Light' }).click();
+    assert.deepEqual(await theme(), ['light', 'rgb(251, 243, 232)']);
+    await appearance.getByRole('radio', { name: 'System' }).click();
+    assert.equal((await theme())[0], 'system');
+    step('appearance: light/dark/system switch, persists across reload');
 
     // Sign out wipes the device
     await page.getByRole('button', { name: 'Sign out' }).click();

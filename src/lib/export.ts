@@ -1,6 +1,7 @@
 import type { CalendarSource, CheckIn, EventSeries, EventSnapshot, HealthSampleRow, Period, Tag } from '../data/types';
 import { partOfDay, weekdayOf } from './time';
 import { periodsFor } from './periods';
+import { pressureReason } from './extra';
 
 /**
  * Exports. JSON is the full-fidelity backup (re-importable later); CSV is a
@@ -59,14 +60,14 @@ function toCsv(header: string[], rows: unknown[][]): string {
 export function buildCheckInsCsv(checkIns: CheckIn[], periods: Period[]): string {
   const header = [
     'id', 'observed_at', 'timezone', 'local_date', 'local_time', 'weekday', 'part_of_day',
-    'mood', 'energy', 'anxiety', 'pressure', 'body_tags', 'context_tags', 'need_tags',
+    'mood', 'energy', 'anxiety', 'pressure', 'pressure_reason', 'body_tags', 'context_tags', 'need_tags',
     'thought', 'preceding', 'events', 'periods', 'created_at', 'updated_at',
   ];
   const rows = [...checkIns]
     .sort((a, b) => a.observed_at.localeCompare(b.observed_at))
     .map((c) => [
       c.id, c.observed_at, c.timezone, c.local_date, c.local_time.slice(0, 5), weekdayOf(c.local_date), partOfDay(c.local_time),
-      c.mood, c.energy, c.anxiety, c.pressure, c.body_tags, c.context_tags, c.need_tags,
+      c.mood, c.energy, c.anxiety, c.pressure, pressureReason(c), c.body_tags, c.context_tags, c.need_tags,
       c.thought, c.preceding, (c.events ?? []).map(describeEvent), periodsFor(c, periods).map((p) => p.title), c.created_at, c.updated_at,
     ]);
   return toCsv(header, rows);

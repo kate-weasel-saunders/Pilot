@@ -22,7 +22,8 @@ describe('csv', () => {
     const csv = buildCheckInsCsv([c], []);
     const [header, row] = csv.split('\r\n');
     expect(header).toContain('weekday,part_of_day');
-    expect(row).toContain('Tuesday,morning,2,1,4,,Heavy; Foggy,Work,');
+    expect(header).toContain('pressure,pressure_reason,body_tags');
+    expect(row).toContain('Tuesday,morning,2,1,4,,,Heavy; Foggy,Work,');
     expect(csv).toContain('"He said ""fine"", but\nit wasn’t"');
   });
 });
