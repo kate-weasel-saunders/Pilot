@@ -297,6 +297,12 @@ const step = (s) => console.log(`✓ ${s}`);
     // Reload keeps session + data (IndexedDB)
     await page.reload();
     await page.getByText('Written on the train with no signal.').waitFor();
+    // ...and the app still opens with no connection (page served from the service worker's cache)
+    await page.waitForFunction(() => navigator.serviceWorker?.controller != null, null, { timeout: 10000 });
+    await context.setOffline(true);
+    await page.reload();
+    await page.getByText('Written on the train with no signal.').waitFor();
+    await context.setOffline(false);
     step('reload keeps session and data');
 
     // Draft survives the app closing mid check-in

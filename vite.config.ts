@@ -27,9 +27,21 @@ export default defineConfig({
       // Only the built app shell is cached. API traffic (Supabase) is never
       // cached by the service worker: personal data lives in IndexedDB only.
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,woff2}'],
-        navigateFallback: '/index.html',
-        runtimeCaching: [],
+        // App files (JS/CSS/fonts/icons) are precached for offline use. The page
+        // itself is NOT served cache-first: when online, every launch loads the
+        // latest index.html from the network (so a bad cached copy can't get the
+        // installed app stuck); the cached copy is only used offline or if the
+        // network takes more than 4 s.
+        globPatterns: ['**/*.{js,css,svg,png,webmanifest,woff2}'],
+        navigateFallback: null,
+        cleanupOutdatedCaches: true,
+        runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: { cacheName: 'pilot-pages', networkTimeoutSeconds: 4, expiration: { maxEntries: 5 } },
+          },
+        ],
       },
       includeAssets: ['icons/apple-touch-icon.png', 'icons/icon.svg'],
       manifest: {
