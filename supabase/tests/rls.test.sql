@@ -218,12 +218,13 @@ insert into public.health_ingest_keys (id, user_id, key_hash) values
   ('44444444-4444-4444-8444-444444444444', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', repeat('a', 64));
 insert into public.health_samples (user_id, metric, starts_at, ends_at, value, label, sample_key) values
   ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'workout', '2026-11-20T07:00:00Z', '2026-11-20T07:35:00Z', 35, 'Running', 'workout|run1'),
-  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'hrv', '2026-11-20T03:00:00Z', '2026-11-20T03:01:00Z', 48, null, 'hrv|1');
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'hrv', '2026-11-20T03:00:00Z', '2026-11-20T03:01:00Z', 48, null, 'hrv|1'),
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'active_minutes', '2026-11-20T07:00:00Z', '2026-11-20T07:10:00Z', 10, null, 'active_minutes|1');
 commit;
 begin;
 select pg_temp.as_user('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') \gset
 do $$ begin
-  assert (select count(*) from public.health_samples) = 2, 'owner reads own health samples';
+  assert (select count(*) from public.health_samples) = 3, 'owner reads own health samples';
   assert (select count(*) from public.health_ingest_keys) = 1, 'owner lists own keys';
   begin
     insert into public.health_samples (user_id, metric, starts_at, ends_at, sample_key)

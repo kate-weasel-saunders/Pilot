@@ -47,7 +47,7 @@ The function uses settings Supabase provides automatically, so there are no keys
 
 ### 1c. Apple Health (optional)
 
-1. In the SQL Editor, paste and run `supabase/migrations/20261121000000_health.sql`.
+1. In the SQL Editor, paste and run `supabase/migrations/20261121000000_health.sql`, then `supabase/migrations/20261122000000_health_active_minutes.sql`.
 2. The `health` function deploys with the others (the workflow deploys it with `--no-verify-jwt`, because the Shortcut authenticates with its own key).
 3. In Pilot: **Settings → Set up Apple Health** → Create a key → follow the guide on that screen.
 

@@ -106,6 +106,8 @@ describe('one-template Shortcut using Apple Health type names', () => {
     expect(r.samples.find((s) => s.metric === 'sleep')).toMatchObject({ value: 420 });
     expect(r.samples.filter((s) => s.metric === 'hrv' || s.metric === 'resting_hr' || s.metric === 'mindful')).toHaveLength(3);
     expect(r.ignored).toEqual({ Steps: 1, 'Wrist Temperature': 1 });
+    // Raw readings are kept too, so daily totals match the Watch.
+    expect(r.samples.filter((s) => s.metric === 'active_minutes').map((s) => s.value)).toEqual([10, 15, 7, 12]);
   });
 
   it('says what it ignored without treating it as an error', () => {
@@ -128,7 +130,7 @@ describe('four-field lines (no unit), as built in the Shortcut', () => {
       NOW,
     );
     expect(r.skipped).toEqual([]);
-    expect(r.samples.map((x) => `${x.metric}:${x.value}`).sort()).toEqual(['hrv:49', 'mindful:10', 'resting_hr:56', 'sleep:120', 'workout:30']);
+    expect(r.samples.map((x) => `${x.metric}:${x.value}`).sort()).toEqual(['active_minutes:30', 'hrv:49', 'mindful:10', 'resting_hr:56', 'sleep:120', 'workout:30']);
   });
 });
 

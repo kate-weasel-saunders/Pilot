@@ -26,7 +26,8 @@
  * them as "Active".
  */
 
-export type Metric = 'workout' | 'mindful' | 'sleep' | 'hrv' | 'resting_hr';
+/** active_minutes: raw Exercise Minutes readings, kept for exact daily totals (like the Watch's Exercise ring). */
+export type Metric = 'workout' | 'mindful' | 'sleep' | 'hrv' | 'resting_hr' | 'active_minutes';
 
 export interface HealthSample {
   metric: Metric;
@@ -241,6 +242,11 @@ export function parseLines(text: string, now = new Date()): ParseResult {
       // Exercise Minutes carry their minutes as the value; fall back to the span.
       const mins = v !== null && v > 0 && v <= span / 60000 + 1 ? v : span / 60000;
       exercise.push({ start, end, minutes: mins });
+      const rawKey = `active_minutes|${start.toISOString()}`;
+      if (!seen.has(rawKey)) {
+        seen.add(rawKey);
+        samples.push({ metric: 'active_minutes', starts_at: start.toISOString(), ends_at: end.toISOString(), value: Math.round(mins * 10) / 10, unit: 'min', label: null, detail: {}, sample_key: rawKey });
+      }
       return;
     }
 

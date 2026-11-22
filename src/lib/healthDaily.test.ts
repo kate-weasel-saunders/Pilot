@@ -20,6 +20,20 @@ const samples = [
   s('hrv', '2026-11-21T03:00:00Z', '2026-11-21T03:01:00Z', 60), // next day
 ];
 
+describe('active total matches the Watch', () => {
+  it('counts every exercise minute, including short bursts left out of active periods', () => {
+    const day = [
+      s('workout', '2026-11-20T07:00:00Z', '2026-11-20T07:20:00Z', 20), // the 20-minute active period
+      s('active_minutes', '2026-11-20T07:00:00Z', '2026-11-20T07:10:00Z', 10),
+      s('active_minutes', '2026-11-20T07:10:00Z', '2026-11-20T07:20:00Z', 10),
+      s('active_minutes', '2026-11-20T12:00:00Z', '2026-11-20T12:04:00Z', 4), // short burst
+      s('active_minutes', '2026-11-20T16:00:00Z', '2026-11-20T16:05:00Z', 5), // short burst
+      s('active_minutes', '2026-11-20T16:00:00Z', '2026-11-20T16:05:00Z', 5), // same minutes from a second source
+    ];
+    expect(summarise(day)?.activeMin).toBe(29);
+  });
+});
+
 describe('day health', () => {
   const byDay = indexByDay(samples, 'Europe/London');
 

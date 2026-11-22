@@ -109,7 +109,8 @@ export interface Tag {
   updated_at: string;
 }
 
-export type HealthMetric = 'workout' | 'mindful' | 'sleep' | 'hrv' | 'resting_hr';
+/** active_minutes: raw Exercise Minutes readings (daily totals); workout: condensed active periods (Check In). */
+export type HealthMetric = 'workout' | 'mindful' | 'sleep' | 'hrv' | 'resting_hr' | 'active_minutes';
 
 /** Imported from Apple Health by the server; read-only on the device. */
 export interface HealthSampleRow {
