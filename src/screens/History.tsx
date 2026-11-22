@@ -110,7 +110,8 @@ export function History() {
             </p>
           )}
           {filtered && results.length === 0 && <p className="empty">Nothing matches.</p>}
-          <DayGroups checkIns={results.slice(0, limit)} periods={periods} pending={pending} />
+          {/* While searching or filtering, open the matching days so results are visible. */}
+          <DayGroups key={filtered ? 'filtered' : 'all'} checkIns={results.slice(0, limit)} periods={periods} pending={pending} defaultOpen={filtered} />
           {results.length > limit && (
             <div className="section">
               <button type="button" className="button wide" onClick={() => setLimit(limit + PAGE)}>Show earlier</button>

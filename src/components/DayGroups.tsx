@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { CheckIn, Period } from '../data/types';
 import { formatDayHeading } from '../lib/time';
 import { useHealthByDay } from '../data/hooks';
@@ -7,11 +8,26 @@ import { HealthTags } from './HealthTags';
 
 /**
  * Check-ins grouped by day (input must be newest first). In History each day
- * is a card headed by the date and that day's health tags; on Today the
- * heading and tags are shown by the screen itself.
+ * is a card: date, number of check-ins and that day's health tags, collapsed
+ * until tapped (or open when `defaultOpen`, e.g. while searching). On Today
+ * the heading and tags are shown by the screen itself.
  */
-export function DayGroups({ checkIns, periods, pending, showHeadings = true }: { checkIns: CheckIn[]; periods: Period[]; pending: Set<string>; showHeadings?: boolean }) {
+export function DayGroups({
+  checkIns,
+  periods,
+  pending,
+  showHeadings = true,
+  defaultOpen = false,
+}: {
+  checkIns: CheckIn[];
+  periods: Period[];
+  pending: Set<string>;
+  showHeadings?: boolean;
+  defaultOpen?: boolean;
+}) {
   const health = useHealthByDay();
+  // Days the user has toggled away from the default.
+  const [toggled, setToggled] = useState<Set<string>>(new Set());
   const days: { date: string; items: CheckIn[] }[] = [];
   for (const c of checkIns) {
     const last = days.at(-1);
@@ -27,19 +43,41 @@ export function DayGroups({ checkIns, periods, pending, showHeadings = true }: {
       </>
     );
   }
+  const toggle = (date: string) =>
+    setToggled((prev) => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
+
   return (
     <>
-      {days.map((d) => (
-        <section key={d.date} className="day-card" aria-label={formatDayHeading(d.date)}>
-          <header className="day-card-head">
-            <h2 className="day-heading">{formatDayHeading(d.date)}</h2>
-            <HealthTags day={summarise(health.get(d.date))} />
-          </header>
-          {d.items.map((c) => (
-            <CheckInCard key={c.id} c={c} periods={periods} pending={pending.has(c.id)} />
-          ))}
-        </section>
-      ))}
+      {days.map((d) => {
+        const open = defaultOpen !== toggled.has(d.date);
+        const heading = formatDayHeading(d.date);
+        const count = d.items.length === 1 ? '1 check-in' : `${d.items.length} check-ins`;
+        const bodyId = `day-${d.date}`;
+        return (
+          <section key={d.date} className={open ? 'day-card open' : 'day-card'} aria-label={heading}>
+            <div className="day-card-head">
+              <button type="button" className="day-card-toggle" aria-expanded={open} aria-controls={bodyId} onClick={() => toggle(d.date)}>
+                <h2 className="day-heading">{heading}</h2>
+                <span className="day-count">{count}</span>
+                <span className="day-chevron" aria-hidden="true" />
+              </button>
+              <HealthTags day={summarise(health.get(d.date))} />
+            </div>
+            {open && (
+              <div id={bodyId} className="day-card-body">
+                {d.items.map((c) => (
+                  <CheckInCard key={c.id} c={c} periods={periods} pending={pending.has(c.id)} />
+                ))}
+              </div>
+            )}
+          </section>
+        );
+      })}
     </>
   );
 }

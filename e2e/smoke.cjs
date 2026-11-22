@@ -251,8 +251,12 @@ const step = (s) => console.log(`✓ ${s}`);
     step('calendar events pre-ticked by the timing rule; untick, add, set kinds (incl. custom)');
     step('check in with scales, tags, custom tag and text; synced to server');
 
-    // History → expand → edit
+    // History → day collapsed by default → expand → open → edit
     await page.getByRole('link', { name: 'History' }).click();
+    const dayToggle = page.getByRole('region', { name: 'Today' }).getByRole('button', { expanded: false });
+    assert.match(await dayToggle.innerText(), /Today\s*1 check-in/);
+    await shot(page, '05a-history-collapsed');
+    await dayToggle.click();
     await page.getByText('Can’t face this meeting.').click();
     await page.getByText('Calendar reminder').waitFor();
     await page.locator('.plain-list').getByText(/Dentist/).waitFor();
@@ -321,14 +325,14 @@ const step = (s) => console.log(`✓ ${s}`);
     // History filters
     await page.getByRole('link', { name: 'History' }).click();
     await page.getByRole('searchbox', { name: 'Search' }).fill('no signal');
-    await page.getByText('1 check-in', { exact: true }).waitFor();
+    await page.locator('p[role=status]', { hasText: /^1 check-in$/ }).waitFor();
     await page.getByRole('searchbox', { name: 'Search' }).fill('');
     await page.getByRole('button', { name: /^Filter/ }).click();
     await page.getByLabel('Tag').selectOption('Jaw clenched');
-    await page.getByText('1 check-in', { exact: true }).waitFor();
+    await page.locator('p[role=status]', { hasText: /^1 check-in$/ }).waitFor();
     await page.getByLabel('Tag').selectOption('');
     await page.getByLabel('Period').selectOption({ label: 'Holiday' });
-    await page.getByText('2 check-ins', { exact: true }).waitFor();
+    await page.locator('p[role=status]', { hasText: /^2 check-ins$/ }).waitFor();
     await shot(page, '09-history-filtered');
     step('search, tag filter and period filter');
 
