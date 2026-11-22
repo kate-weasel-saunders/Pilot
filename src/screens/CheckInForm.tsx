@@ -6,9 +6,10 @@ import { removeCheckIn, saveCheckIn, saveSeriesPref, saveTag } from '../data/act
 import { useCalendar } from '../data/hooks';
 import { candidatesFor, snapshotOf } from '../lib/calendar';
 import { EventPicker } from '../components/EventPicker';
+import { WhenPicker, type WhenPreset } from '../components/WhenPicker';
 import { newId } from '../data/repo';
 import type { CalendarEvent, CheckIn, EventSnapshot, Score, Tag, TagKind } from '../data/types';
-import { deviceTimeZone, formatDayHeading, instantFromWallClock, localFields, wallClock } from '../lib/time';
+import { deviceTimeZone, instantFromWallClock, localFields, wallClock } from '../lib/time';
 import { chipsFor, MEASURES, TAG_GROUPS } from '../lib/vocabulary';
 import { pressureReason, withPressureReason } from '../lib/extra';
 import { ScaleInput } from '../components/ScaleInput';
@@ -32,6 +33,8 @@ interface Draft {
   timezone: string;
   timeEdited: boolean;
   startedAt: number;
+  /** Which "When" choice is selected (new check-ins). */
+  preset?: WhenPreset;
   /** Chosen calendar events; null = use the default rule at save time. */
   events: EventSnapshot[] | null;
 }
@@ -109,6 +112,12 @@ function Form({ initial, existing }: { initial: Draft; existing: CheckIn | null 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const tags = useLiveQuery(() => db.tags.toArray(), [], [] as Tag[]);
   const calendar = useCalendar();
+  // Current time, refreshed every 30 s (for the "not in the future" check).
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setClock(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
   const f = draft.fields;
   const isNew = existing === null;
 
@@ -119,6 +128,8 @@ function Form({ initial, existing }: { initial: Draft; existing: CheckIn | null 
       ? instantFromWallClock(draft.date, draft.time, draft.timezone)
       : new Date(draft.startedAt);
   const atDate = wallClock(at, draft.timezone).date;
+  // A minute's grace so "now" picked just before saving never counts as future.
+  const isFuture = at.getTime() > clock + 60_000;
   const candidates = candidatesFor(calendar.events, at, atDate, draft.timezone, calendar.ctx);
   const eventsByKey = new Map(calendar.events.map((e) => [e.event_key, e]));
   const selected = new Map(
@@ -169,7 +180,7 @@ function Form({ initial, existing }: { initial: Draft; existing: CheckIn | null 
     });
 
   const save = async () => {
-    if (!hasContent(f) || saving) return;
+    if (!hasContent(f) || saving || isFuture) return;
     setSaving(true);
     const instant = draft.timeEdited || !isNew ? instantFromWallClock(draft.date, draft.time, draft.timezone) : new Date(draft.startedAt);
     // Keep seconds from the original entry if the time wasn't touched.
@@ -202,7 +213,6 @@ function Form({ initial, existing }: { initial: Draft; existing: CheckIn | null 
     navigate(-1);
   };
 
-  const today = wallClock(new Date(), draft.timezone).date;
 
   return (
     <main className="page checkin-form">
@@ -214,23 +224,12 @@ function Form({ initial, existing }: { initial: Draft; existing: CheckIn | null 
         </button>
       </div>
 
-      <details className="more when" open={draft.timeEdited}>
-        <summary>
-          {draft.date === today ? 'Today' : formatDayHeading(draft.date, today)} at {draft.time}
-          {draft.timezone !== deviceTimeZone() && ` (${draft.timezone})`}
-          <span className="faint">&nbsp;· change</span>
-        </summary>
-        <div className="field-row">
-          <label className="field">
-            <span>Date</span>
-            <input type="date" value={draft.date} max={today} required onChange={(e) => e.target.value && setDraft((d) => ({ ...d, date: e.target.value, timeEdited: true }))} />
-          </label>
-          <label className="field">
-            <span>Time</span>
-            <input type="time" value={draft.time} required onChange={(e) => e.target.value && setDraft((d) => ({ ...d, time: e.target.value, timeEdited: true }))} />
-          </label>
-        </div>
-      </details>
+      <WhenPicker
+        value={{ date: draft.date, time: draft.time, timezone: draft.timezone, timeEdited: draft.timeEdited, preset: draft.preset ?? (draft.timeEdited ? 'custom' : 'now') }}
+        isNew={isNew}
+        isFuture={isFuture}
+        onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))}
+      />
 
       <div>
         {MEASURES.map((m) => (
@@ -303,7 +302,7 @@ function Form({ initial, existing }: { initial: Draft; existing: CheckIn | null 
 
       <div className="save-bar">
         <div className="inner">
-          <button type="button" className="button primary" disabled={!hasContent(f) || saving} onClick={save}>
+          <button type="button" className="button primary" disabled={!hasContent(f) || saving || isFuture} onClick={save}>
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>

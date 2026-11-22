@@ -706,3 +706,25 @@ details.more[open] > summary::before {
 .scale:has(+ .scale-reason) {
   border-bottom: 0;
 }
+
+/* When (check-in time) */
+.when-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  margin-bottom: var(--s-4);
+}
+
+.when-picker .row {
+  align-items: baseline;
+}
+
+.when-picker .section-title {
+  margin-bottom: 0;
+}
+
+.when-summary {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink-soft);
+}

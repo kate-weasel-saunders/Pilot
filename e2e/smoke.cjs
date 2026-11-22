@@ -278,6 +278,8 @@ const step = (s) => console.log(`✓ ${s}`);
     await page.getByRole('link', { name: 'Today' }).click();
     await page.getByRole('link', { name: 'Check in' }).click();
     await scale('Energy').getByRole('radio', { name: 'Some', exact: true }).click();
+    await page.getByRole('radiogroup', { name: 'When' }).getByRole('radio', { name: '1 hour ago' }).click();
+    await page.getByText('Today at 07:00').waitFor();
     await page.getByLabel('What’s going through your head?').fill('Written on the train with no signal.');
     await page.getByRole('button', { name: 'Save' }).click();
     await page.getByText('Written on the train with no signal.').waitFor();
@@ -286,8 +288,11 @@ const step = (s) => console.log(`✓ ${s}`);
     assert.equal(serverCheckIns().length, 1, 'nothing reaches the server while offline');
     await context.setOffline(false);
     await waitFor(() => serverCheckIns().length === 2, 'offline check-in syncs when back online');
+    const backdated = serverCheckIns().find((c) => c.thought?.includes('train'));
+    assert.equal(backdated.local_time, '07:00:00', 'check-in recorded for an hour earlier');
+    assert.equal(backdated.observed_at, '2026-11-20T07:00:00.000Z');
     await page.getByText(/will sync when online/).waitFor({ state: 'detached' });
-    step('check in while offline; synced automatically on reconnect');
+    step('check in while offline, back-dated by an hour; synced automatically on reconnect');
 
     // Reload keeps session + data (IndexedDB)
     await page.reload();
@@ -297,6 +302,12 @@ const step = (s) => console.log(`✓ ${s}`);
     // Draft survives the app closing mid check-in
     await page.getByRole('link', { name: 'Check in' }).click();
     await page.getByLabel('What’s going through your head?').fill('Half-finished thought');
+    await page.getByRole('radiogroup', { name: 'When' }).getByRole('radio', { name: 'Other time…' }).click();
+    await page.getByLabel('Time').fill('09:30'); // the browser clock is 08:00
+    await page.getByRole('alert').filter({ hasText: 'in the future' }).waitFor();
+    assert.equal(await page.getByRole('button', { name: 'Save' }).isDisabled(), true, 'future times cannot be saved');
+    await page.getByRole('radiogroup', { name: 'When' }).getByRole('radio', { name: 'Now' }).click();
+    await page.getByRole('alert').filter({ hasText: 'in the future' }).waitFor({ state: 'detached' });
     await page.waitForTimeout(700);
     await page.reload();
     await page.getByLabel('What’s going through your head?').waitFor();
@@ -341,6 +352,8 @@ const step = (s) => console.log(`✓ ${s}`);
 
     // Delete with confirmation
     await page.getByText('Written on the train with no signal.').click();
+    await page.getByText('Later, at 08:00').waitFor();
+    await shot(page, '09b-recorded-later');
     await page.getByRole('button', { name: 'Delete' }).click();
     const dialog = page.getByRole('dialog', { name: 'Delete this check-in?' });
     await dialog.getByRole('button', { name: 'Cancel' }).click();

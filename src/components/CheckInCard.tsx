@@ -5,6 +5,18 @@ import { formatTime, deviceTimeZone } from '../lib/time';
 import { levelLabel, MEASURES, TAG_GROUPS } from '../lib/vocabulary';
 import { relationLabel, timeLabel } from '../lib/calendar';
 import { pressureReason } from '../lib/extra';
+import { wallClock } from '../lib/time';
+
+/** When a check-in was written well after the moment it describes, say so (e.g. "09:12" or "21 Nov, 09:12"). */
+function recordedLater(c: CheckIn): string | null {
+  const gap = Date.parse(c.created_at) - Date.parse(c.observed_at);
+  if (!(gap > 15 * 60000)) return null;
+  const at = wallClock(new Date(c.created_at), c.timezone);
+  const time = at.time.slice(0, 5);
+  if (at.date === c.local_date) return time;
+  const d = new Date(`${at.date}T12:00:00Z`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  return `${d}, ${time}`;
+}
 import { periodsFor } from '../lib/periods';
 import { removeCheckIn } from '../data/actions';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -84,6 +96,12 @@ export function CheckInCard({ c, periods, pending }: { c: CheckIn; periods: Peri
               <div>
                 <dt>Periods</dt>
                 <dd>{inPeriods.map((p) => p.title).join(', ')}</dd>
+              </div>
+            )}
+            {recordedLater(c) && (
+              <div>
+                <dt>Recorded</dt>
+                <dd className="faint">Later, at {recordedLater(c)}</dd>
               </div>
             )}
             {otherZone && (
