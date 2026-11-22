@@ -208,7 +208,7 @@ const step = (s) => console.log(`✓ ${s}`);
     await page.getByRole('textbox', { name: 'What happened just before this?' }).fill('Calendar reminder');
 
     // Calendar events: the default rule, then adjustments
-    const around = page.getByRole('button', { name: /Around now/ });
+    const around = page.getByRole('button', { name: /Happening around this time/ });
     await around.waitFor();
     assert.match(await around.innerText(), /Neil’s parents visiting · Gym 06:00 · Dentist 10:00 · \+1/);
     await shot(page, '03-check-in');
@@ -415,7 +415,7 @@ const step = (s) => console.log(`✓ ${s}`);
     await shot(page, '16-history-day-cards');
     await page.getByRole('link', { name: 'Today' }).click();
     await page.getByRole('link', { name: 'Check in' }).click();
-    await page.getByRole('button', { name: /Around now/ }).click();
+    await page.getByRole('button', { name: /Happening around this time/ }).click();
     assert.ok(await page.getByRole('checkbox', { name: /Running · 35 min/ }).isChecked(), 'run an hour ago pre-ticked');
     assert.ok(await page.getByRole('checkbox', { name: /Sleep · 6h 52m/ }).isChecked(), 'last night’s sleep pre-ticked');
     assert.equal(await page.getByRole('checkbox', { name: /Strength/ }).count(), 0, 'yesterday’s workout not offered');

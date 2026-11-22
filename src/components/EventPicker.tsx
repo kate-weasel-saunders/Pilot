@@ -22,7 +22,7 @@ interface Props {
 type Row = { key: string; series_key: string; title: string; time: string; when: string; kind: string | null; event?: CalendarEvent; snapshot?: EventSnapshot };
 
 /**
- * "Around now": calendar events for this check-in. Collapsed to one line so
+ * "Happening around this time": calendar events (and Apple Health items) for this check-in. Collapsed to one line so
  * capture stays fast; expands into a checklist with kinds.
  */
 export function EventPicker(p: Props) {
@@ -100,7 +100,7 @@ export function EventPicker(p: Props) {
   return (
     <section className="events section" aria-label="Calendar">
       <button type="button" className="events-summary" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <span className="section-title">Around now</span>
+        <span className="section-title">Happening around this time</span>
         <span className="events-line">
           {summary}
           <span className="faint"> · {open ? 'done' : 'change'}</span>

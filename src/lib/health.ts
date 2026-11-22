@@ -2,7 +2,7 @@ import type { CalendarEvent, HealthSampleRow } from '../data/types';
 
 /**
  * Apple Health samples as attachable items. Workouts, mindful sessions and
- * sleep behave like calendar events in Check In ("Around now"), so they reuse
+ * sleep behave like calendar events in Check In ("Happening around this time"), so they reuse
  * the same picker and snapshots. HRV and resting heart rate are daily context
  * for analysis, not attached to individual check-ins.
  */

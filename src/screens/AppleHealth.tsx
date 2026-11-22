@@ -110,7 +110,7 @@ export function AppleHealth() {
 
       <p className="muted small">
         A Shortcut on your iPhone sends active time, mindful sessions, sleep, HRV and resting heart rate to Pilot. Recent active periods,
-        mindful sessions and last night’s sleep appear under “Around now” when you check in. Only summaries are sent: no routes, no second-by-second heart rate.
+        mindful sessions and last night’s sleep appear under “Happening around this time” when you check in. Only summaries are sent: no routes, no second-by-second heart rate.
       </p>
 
       {latest && latest.count > 0 && (
