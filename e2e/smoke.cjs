@@ -413,7 +413,7 @@ const step = (s) => console.log(`✓ ${s}`);
     await page.getByRole('button', { name: 'Done' }).click();
     const todayTags = page.getByRole('list', { name: 'Health' });
     await todayTags.getByText('Sleep 6h 52m').waitFor();
-    assert.deepEqual(await todayTags.getByRole('listitem').allInnerTexts(), ['Sleep 6h 52m', 'HRV 48 ms', 'Active 35 min']);
+    assert.deepEqual(await todayTags.getByRole('listitem').allInnerTexts(), ['Sleep 6h 52m', 'HRV 48 ms', 'No resting HR data', 'Active 35 min', 'No mindful data']);
     assert.equal(await page.getByRole('button', { name: /Update health data \(runs your Send to Pilot Shortcut\)/ }).count(), 1, 'update button on Today');
     await shot(page, '15-today-health');
     await page.getByRole('link', { name: 'History' }).click();

@@ -44,7 +44,7 @@ export function Today() {
 
       {health.size > 0 && (
         <div className="today-health">
-          <HealthTags day={summarise(health.get(now.date))} />
+          <HealthTags day={summarise(health.get(now.date))} showMissing />
           <UpdateHealthButton />
         </div>
       )}

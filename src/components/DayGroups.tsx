@@ -66,7 +66,7 @@ export function DayGroups({
                 <span className="day-count">{count}</span>
                 <span className="day-chevron" aria-hidden="true" />
               </button>
-              <HealthTags day={summarise(health.get(d.date))} />
+              <HealthTags day={summarise(health.get(d.date))} showMissing={health.size > 0} />
             </div>
             {open && (
               <div id={bodyId} className="day-card-body">

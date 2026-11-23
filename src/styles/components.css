@@ -741,3 +741,9 @@ details.more[open] > summary::before {
   font-weight: 600;
   color: var(--ink-soft);
 }
+
+.health-tags .tag-missing {
+  background: var(--surface-sunk);
+  color: var(--ink-faint);
+  font-weight: 500;
+}
