@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 import { useCheckIns, useHealthByDay, usePendingIds, usePeriods } from '../data/hooks';
 import { summarise } from '../lib/healthDaily';
 import { HealthTags } from '../components/HealthTags';
+import { UpdateHealthButton } from '../components/UpdateHealthButton';
 import { deviceTimeZone, formatDayHeading, wallClock } from '../lib/time';
 import { periodStatus } from '../lib/periods';
 import { DayGroups } from '../components/DayGroups';
@@ -41,9 +42,12 @@ export function Today() {
         <Link to="/settings" className="button quiet small">Settings</Link>
       </div>
 
-      <div className="today-health">
-        <HealthTags day={summarise(health.get(now.date))} />
-      </div>
+      {health.size > 0 && (
+        <div className="today-health">
+          <HealthTags day={summarise(health.get(now.date))} />
+          <UpdateHealthButton />
+        </div>
+      )}
 
       {active.length > 0 && (
         <p className="muted" style={{ marginBottom: 'var(--s-4)' }}>

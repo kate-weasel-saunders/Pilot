@@ -8,6 +8,7 @@ import { syncNow } from '../data/syncController';
 import { formatMinutes } from '../lib/health';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ShortcutGuide } from '../components/ShortcutGuide';
+import { UpdateHealthButton } from '../components/UpdateHealthButton';
 
 interface KeyRow {
   id: string;
@@ -112,6 +113,18 @@ export function AppleHealth() {
         A Shortcut on your iPhone sends active time, mindful sessions, sleep, HRV and resting heart rate to Pilot. Recent active periods,
         mindful sessions and last night’s sleep appear under “Happening around this time” when you check in. Only summaries are sent: no routes, no second-by-second heart rate.
       </p>
+
+      {keys?.some((k) => k.last_used_at) && (
+        <section className="section">
+          <div className="stack">
+            <UpdateHealthButton variant="full" />
+            <p className="faint small">
+              Runs your “Send to Pilot” Shortcut. iPhone only lets Shortcuts read Health while the phone is unlocked, so this is the reliable
+              way; automations can miss runs while the phone is locked. Come back to Pilot when it’s done.
+            </p>
+          </div>
+        </section>
+      )}
 
       {latest && latest.count > 0 && (
         <section className="section">

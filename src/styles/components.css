@@ -685,6 +685,19 @@ details.more[open] > summary::before {
   white-space: nowrap;
 }
 
+.today-health {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.update-health {
+  min-height: 32px;
+  padding: 0 var(--s-2);
+  font-size: var(--text-xs);
+}
+
 .today-health:has(.health-tags) {
   margin: calc(-1 * var(--s-3)) 0 var(--s-4);
 }
