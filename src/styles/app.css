@@ -10,6 +10,12 @@ html {
   text-size-adjust: 100%;
 }
 
+html,
+body {
+  /* Safety net: the page itself never scrolls sideways (clip, unlike hidden, keeps sticky/fixed working). */
+  overflow-x: clip;
+}
+
 body {
   margin: 0;
   background-color: var(--bg);
@@ -277,8 +283,34 @@ code {
 
 .field-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0, …) lets each column shrink below its content's minimum width */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--s-3);
+}
+
+.field {
+  min-width: 0;
+}
+
+/*
+ * iOS Safari gives date/time inputs a large intrinsic minimum width that
+ * ignores width: 100%, which pushed the page sideways. Strip the native
+ * appearance so they size like other fields, and keep the value left-aligned.
+ */
+.field input[type='date'],
+.field input[type='time'] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  text-align: left;
+}
+
+.field input[type='date']::-webkit-date-and-time-value,
+.field input[type='time']::-webkit-date-and-time-value {
+  text-align: left;
+  margin: 0;
 }
 
 /* Sign in */
