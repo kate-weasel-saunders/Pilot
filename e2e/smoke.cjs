@@ -451,6 +451,25 @@ const step = (s) => console.log(`✓ ${s}`);
     assert.equal((await theme())[0], 'system');
     step('appearance: light/dark/system switch, persists across reload');
 
+    // Patterns: trends render, tap selects a day, table view
+    await page.getByRole('button', { name: 'Done' }).click();
+    await page.getByRole('link', { name: 'Patterns' }).click();
+    await page.getByRole('radio', { name: '7 days' }).click();
+    const moodChart = page.getByRole('group', { name: /^Mood chart/ });
+    await moodChart.waitFor();
+    assert.equal(await page.getByRole('group', { name: /^Sleep \(hours\) chart/ }).count(), 1, 'sleep chart when health data exists');
+    const chartBox = await moodChart.boundingBox();
+    await page.mouse.click(chartBox.x + chartBox.width - 10, chartBox.y + chartBox.height / 2); // the last day = today
+    const selection = page.getByRole('region', { name: 'Selected day' });
+    await selection.getByText('Today').waitFor();
+    await selection.getByText('Okay').waitFor(); // today's mood (edited to 3)
+    await shot(page, '18-patterns');
+    await page.getByRole('button', { name: 'Show as table' }).click();
+    await page.getByRole('table').getByRole('rowheader').first().waitFor();
+    await page.getByRole('link', { name: 'Today' }).click();
+    await page.getByRole('link', { name: 'Settings' }).click();
+    step('Patterns: trends for the measures and sleep, tap to select a day, table view');
+
     // Sign out wipes the device
     await page.getByRole('button', { name: 'Sign out' }).click();
     await page.getByRole('dialog', { name: 'Sign out?' }).getByRole('button', { name: 'Sign out' }).click();
