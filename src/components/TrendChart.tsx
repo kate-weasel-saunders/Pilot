@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+
+/** A touch that moves further than this (px) is a scroll, not a tap. */
+const TAP_SLOP = 8;
 import type { Band, Point } from '../lib/trends';
+import { isWeekend } from '../lib/time';
 
 /**
  * One small-multiple trend chart (SVG). Single series, one y-axis.
@@ -7,7 +11,8 @@ import type { Band, Point } from '../lib/trends';
  * - dots: individual readings (8px, 2px surface ring)
  * - bars: one per day, anchored to the baseline (sleep)
  * - bands: periods as soft shaded spans
- * Tap/hover/arrow keys select a day; the selection is shared across charts by
+ * A tap (not a scroll or a long press) or the arrow keys select a day; tapping
+ * the selected day again clears it. the selection is shared across charts by
  * the parent, which shows the values (tooltips enhance, never gate: there's a
  * table view too).
  */
@@ -43,12 +48,18 @@ function useWidth<T extends HTMLElement>() {
   return [ref, width] as const;
 }
 
+const dayOf = (d: string) => new Date(`${d}T12:00:00Z`);
+const weekdayLetter = (d: string) => dayOf(d).toLocaleDateString(undefined, { weekday: 'narrow', timeZone: 'UTC' });
+/** Weekday letters only while each day has room for one. */
+const MAX_LETTER_DAYS = 31;
+
 const shortDate = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
 export function TrendChart(p: TrendChartProps) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const plotH = p.height ?? 112;
-  const axisH = 22;
+  const letters = p.days.length <= MAX_LETTER_DAYS;
+  const axisH = letters ? 36 : 22;
   const padTop = p.showBandLabels && p.bands.length ? 18 : 6;
   const padX = 8;
   const n = p.days.length;
@@ -59,11 +70,27 @@ export function TrendChart(p: TrendChartProps) {
   const totalH = padTop + plotH + axisH;
   const barW = Math.max(2, Math.min(14, step - 2));
 
-  const pick = (e: PointerEvent<SVGSVGElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const px = ((e.clientX - rect.left) / rect.width) * width;
+  const tap = useRef<{ id: number; x: number; y: number; t: number } | null>(null);
+  const pick = (clientX: number, svg: SVGSVGElement) => {
+    const rect = svg.getBoundingClientRect();
+    const px = ((clientX - rect.left) / rect.width) * width;
     const i = Math.max(0, Math.min(n - 1, Math.round((px - padX) / (step || 1))));
-    p.onSelect(p.days[i] ?? null);
+    const d = p.days[i] ?? null;
+    p.onSelect(d === p.selected ? null : d);
+  };
+  const down = (e: PointerEvent<SVGSVGElement>) => {
+    tap.current = { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp };
+  };
+  const move = (e: PointerEvent<SVGSVGElement>) => {
+    const t = tap.current;
+    if (t && t.id === e.pointerId && Math.hypot(e.clientX - t.x, e.clientY - t.y) > TAP_SLOP) tap.current = null;
+  };
+  const up = (e: PointerEvent<SVGSVGElement>) => {
+    const t = tap.current;
+    tap.current = null;
+    if (!t || t.id !== e.pointerId || e.timeStamp - t.t > 500) return;
+    if (Math.hypot(e.clientX - t.x, e.clientY - t.y) > TAP_SLOP) return;
+    pick(e.clientX, e.currentTarget);
   };
   const key = (e: KeyboardEvent) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Escape') return;
@@ -88,8 +115,10 @@ export function TrendChart(p: TrendChartProps) {
         role="group"
         aria-label={`${p.title} chart. Tap a day, or use the arrow keys, to see its values. The table view lists every value.`}
         tabIndex={0}
-        onPointerDown={pick}
-        onPointerMove={(e) => (e.pointerType === 'mouse' ? pick(e) : undefined)}
+        onPointerDown={down}
+        onPointerMove={move}
+        onPointerUp={up}
+        onPointerCancel={() => (tap.current = null)}
         onKeyDown={key}
         style={{ touchAction: 'pan-y' }}
       >
@@ -149,9 +178,17 @@ export function TrendChart(p: TrendChartProps) {
           </g>
         )}
 
+        {/* weekday letters (weekends picked out) */}
+        {letters &&
+          p.days.map((d) => (
+            <text key={`w-${d}`} x={x(d)} y={padTop + plotH + 14} textAnchor="middle" className={isWeekend(d) ? 'trend-weekday weekend' : 'trend-weekday'} aria-hidden="true">
+              {weekdayLetter(d)}
+            </text>
+          ))}
+
         {/* x axis */}
         {xTicks.map((d, i) => (
-          <text key={`${d}-${i}`} x={x(d)} y={padTop + plotH + 16} textAnchor={i === 0 ? 'start' : i === xTicks.length - 1 ? 'end' : 'middle'} className="trend-axis">
+          <text key={`${d}-${i}`} x={x(d)} y={padTop + plotH + (letters ? 31 : 16)} textAnchor={i === 0 ? 'start' : i === xTicks.length - 1 ? 'end' : 'middle'} className="trend-axis">
             {shortDate(d)}
           </text>
         ))}

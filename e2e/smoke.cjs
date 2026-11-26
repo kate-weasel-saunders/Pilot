@@ -408,6 +408,7 @@ const step = (s) => console.log(`✓ ${s}`);
       sample({ metric: 'hrv', value: 48, unit: 'ms', starts_at: h(-5), ends_at: h(-5), sample_key: 'hrv|1' }),
       sample({ metric: 'workout', label: 'Strength', value: 40, starts_at: h(-30), ends_at: h(-29.3), sample_key: 'workout|yesterday' }),
     ]) tables.health_samples.set(r.id, r);
+    for (const k of tables.health_ingest_keys.values()) Object.assign(k, { last_used_at: new Date(NOW.getTime() - 12 * 60_000).toISOString(), updated_at: new Date((clock += 1000)).toISOString() });
     await page.reload();
     await page.getByText('Latest received').waitFor();
     await page.getByText('48 ms', { exact: false }).waitFor();
@@ -418,6 +419,7 @@ const step = (s) => console.log(`✓ ${s}`);
     await todayTags.getByText('Sleep 6h 52m').waitFor();
     assert.deepEqual(await todayTags.getByRole('listitem').allInnerTexts(), ['Sleep 6h 52m', 'HRV 48 ms', 'No resting HR data', 'Active 35 min', 'No mindful data']);
     assert.equal(await page.getByRole('button', { name: /Update health data \(runs your Send to Pilot Shortcut\)/ }).count(), 1, 'update button on Today');
+    await page.getByText(/^Synced (12 min ago|just now|\d+ min ago)$/).waitFor();
     await shot(page, '15-today-health');
     await page.getByRole('link', { name: 'History' }).click();
     const todayCard = page.getByRole('region', { name: 'Today' });
@@ -463,12 +465,23 @@ const step = (s) => console.log(`✓ ${s}`);
     const selection = page.getByRole('region', { name: 'Selected day' });
     await selection.getByText('Today').waitFor();
     await selection.getByText('Okay').waitFor(); // today's mood (edited to 3)
+    const letters = moodChart.locator('.trend-weekday');
+    assert.equal(await letters.count(), 7, 'a weekday letter per day');
+    assert.equal(await moodChart.locator('.trend-weekday.weekend').count(), 2, 'weekends picked out');
+    // A drag (scrolling) over another day doesn't change the selection
+    await page.mouse.move(chartBox.x + 20, chartBox.y + 30);
+    await page.mouse.down();
+    await page.mouse.move(chartBox.x + 20, chartBox.y + 80, { steps: 5 });
+    await page.mouse.up();
+    await selection.getByText('Today').waitFor();
     await shot(page, '18-patterns');
     await page.getByRole('button', { name: 'Show as table' }).click();
     await page.getByRole('table').getByRole('rowheader').first().waitFor();
-    await page.getByRole('link', { name: 'Today' }).click();
-    await page.getByRole('link', { name: 'Settings' }).click();
-    step('Patterns: trends for the measures and sleep, tap to select a day, table view');
+    // Tapping the selected day again clears it
+    await page.mouse.click(chartBox.x + chartBox.width - 10, chartBox.y + chartBox.height / 2);
+    await selection.waitFor({ state: 'detached' });
+    await page.getByRole('link', { name: 'Settings' }).click(); // Settings is in the tab bar on every screen
+    step('Patterns: trends with weekday letters, tap (not drag) selects a day and tap again clears, table view');
 
     // Sign out wipes the device
     await page.getByRole('button', { name: 'Sign out' }).click();

@@ -125,3 +125,18 @@ export function formatShortDate(localDate: string): string {
 export function formatTime(localTime: string): string {
   return localTime.slice(0, 5);
 }
+
+/** "just now", "12 min ago", "today at 09:14", "yesterday at 21:05", "Tue 24 Nov at 08:30". */
+export function sinceLabel(iso: string, nowMs: number, timeZone = deviceTimeZone()): string {
+  const at = new Date(iso);
+  const mins = Math.floor((nowMs - at.getTime()) / 60_000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  const then = wallClock(at, timeZone);
+  const today = todayLocal(timeZone, new Date(nowMs));
+  const time = formatTime(then.time);
+  if (then.date === today) return `today at ${time}`;
+  if (then.date === addDays(today, -1)) return `yesterday at ${time}`;
+  const day = new Date(`${then.date}T12:00:00Z`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+  return `${day} at ${time}`;
+}

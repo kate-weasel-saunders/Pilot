@@ -38,8 +38,6 @@ export function Today() {
     <main className="page">
       <div className="page-head">
         <h1 className="date-title">{dateLine}</h1>
-        <span className="spacer" />
-        <Link to="/settings" className="button quiet small">Settings</Link>
       </div>
 
       {health.size > 0 && (

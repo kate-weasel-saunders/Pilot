@@ -99,10 +99,12 @@ export function Patterns() {
 
           {selInfo && (
             <section className="trend-selection" aria-live="polite" aria-label="Selected day">
-              <div className="row">
+              <div className="trend-selection-head">
                 <h2 className="trend-selection-date">{formatDayHeading(sel!, today)}</h2>
-                <span className="spacer" />
-                <button type="button" className="button quiet small" onClick={() => setSelected(null)} aria-label="Clear selection">
+                <Link className="trend-selection-link" to={`/history?from=${sel}&to=${sel}`}>
+                  History →
+                </Link>
+                <button type="button" className="button quiet small trend-selection-close" onClick={() => setSelected(null)} aria-label="Clear selection">
                   ✕
                 </button>
               </div>
@@ -110,13 +112,13 @@ export function Patterns() {
                 {selInfo.map((v) => (
                   <div key={v.label}>
                     <dt>{v.label}</dt>
-                    <dd>{v.value}</dd>
+                    <dd>
+                      {v.value}
+                      {v.note && <span className="trend-value-note">{v.note}</span>}
+                    </dd>
                   </div>
                 ))}
               </dl>
-              <Link className="button quiet small" to={`/history?from=${sel}&to=${sel}`}>
-                See this day in History →
-              </Link>
             </section>
           )}
 
@@ -200,13 +202,14 @@ function hrvTicks(hrv: { value: number }[]) {
   return [{ value: top, label: `${top}` }, { value: top / 2, label: `${top / 2}` }];
 }
 
-function dayInfo(date: string, data: Data): { label: string; value: string }[] {
-  const out: { label: string; value: string }[] = [];
+function dayInfo(date: string, data: Data): { label: string; value: string; note?: string }[] {
+  const out: { label: string; value: string; note?: string }[] = [];
   for (const { m, s } of data.measures) {
     const d = s.daily.find((q) => q.date === date);
     out.push({
       label: SHORT[m.key].split(' /')[0]!,
-      value: d ? `${levelLabel(m.key, Math.round(d.value))}${d.n > 1 ? ` (average of ${d.n})` : ''}` : '—',
+      value: (d && levelLabel(m.key, Math.round(d.value))) || '—',
+      ...(d && d.n > 1 ? { note: `avg of ${d.n}` } : {}),
     });
   }
   const sleep = data.health.sleepHours.find((q) => q.date === date);

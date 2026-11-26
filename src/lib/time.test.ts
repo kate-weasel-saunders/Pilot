@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, instantFromWallClock, isWeekend, localFields, partOfDay, wallClock, weekdayOf } from './time';
+import { addDays, instantFromWallClock, isWeekend, localFields, partOfDay, sinceLabel, wallClock, weekdayOf } from './time';
 
 describe('wallClock / localFields', () => {
   it('derives the wall clock in the given zone, not the machine zone', () => {
@@ -61,5 +61,21 @@ describe('derived properties', () => {
   it('adds days across month and year ends', () => {
     expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
     expect(addDays('2026-03-01', -1)).toBe('2026-02-28');
+  });
+});
+
+describe('sinceLabel', () => {
+  const now = Date.parse('2026-11-26T21:30:00Z');
+  const tz = 'Europe/London';
+  it('is relative for the last hour', () => {
+    expect(sinceLabel('2026-11-26T21:29:40Z', now, tz)).toBe('just now');
+    expect(sinceLabel('2026-11-26T21:18:00Z', now, tz)).toBe('12 min ago');
+  });
+  it('names today and yesterday with a time', () => {
+    expect(sinceLabel('2026-11-26T09:14:00Z', now, tz)).toBe('today at 09:14');
+    expect(sinceLabel('2026-11-25T21:05:00Z', now, tz)).toBe('yesterday at 21:05');
+  });
+  it('uses the date further back', () => {
+    expect(sinceLabel('2026-11-24T08:30:00Z', now, tz)).toMatch(/24.*at 08:30$/);
   });
 });
