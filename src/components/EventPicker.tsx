@@ -13,7 +13,8 @@ interface Props {
   localDate: string;
   timeZone: string;
   kinds: string[];
-  onToggle: (e: CalendarEvent | EventSnapshot, on: boolean) => void;
+  /** Tick or untick one or more items in one go. */
+  onToggle: (items: (CalendarEvent | EventSnapshot)[], on: boolean) => void;
   onSetKind: (seriesKey: string, kind: string | null) => void;
   onAddKind: (label: string) => void;
   onSetHidden: (seriesKey: string, hidden: boolean) => void;
@@ -57,13 +58,32 @@ export function EventPicker(p: Props) {
         .join(' · ') + (chosen.length > 3 ? ` · +${chosen.length - 3}` : '')
     : 'None selected';
 
+  const itemOf = (r: Row) => (r.event ?? r.snapshot)!;
+  /** "Select all · None" for one list. */
+  const bulk = (rows: Row[], label: string) => {
+    const all = rows.every((r) => p.selected.has(r.key));
+    const none = rows.every((r) => !p.selected.has(r.key));
+    return (
+      <span className="events-bulk" role="group" aria-label={`Select ${label}`}>
+        <span className="faint" aria-hidden="true">Select</span>
+        <button type="button" className="link-button" disabled={all} onClick={() => p.onToggle(rows.map(itemOf), true)} aria-label={`Select all ${label}`}>
+          All
+        </button>
+        <span className="faint" aria-hidden="true">·</span>
+        <button type="button" className="link-button" disabled={none} onClick={() => p.onToggle(rows.map(itemOf), false)} aria-label={`Select none ${label}`}>
+          None
+        </button>
+      </span>
+    );
+  };
+
   const row = (r: Row) => {
     const checked = p.selected.has(r.key);
     const hidden = Boolean(p.ctx.series.get(r.series_key)?.hidden);
     return (
       <li key={r.key} className="event-row">
         <label className="event-check">
-          <input type="checkbox" checked={checked} onChange={(e) => p.onToggle((r.event ?? r.snapshot)!, e.target.checked)} />
+          <input type="checkbox" checked={checked} onChange={(e) => p.onToggle([(r.event ?? r.snapshot)!], e.target.checked)} />
           <span className="event-text">
             <span className="event-title">{r.title}</span>
             <span className="event-meta">
@@ -108,10 +128,14 @@ export function EventPicker(p: Props) {
       </button>
       {open && (
         <div className="events-list">
+          {main.length > 1 && <div className="events-bulk-row">{bulk(main, 'around this time')}</div>}
           {main.length > 0 && <ul>{main.map(row)}</ul>}
           {extra.length > 0 && (
             <>
-              <h3 className="section-title events-sub">Also today</h3>
+              <div className="events-sub-head">
+                <h3 className="section-title events-sub">Also today</h3>
+                {extra.length > 1 && bulk(extra, 'also today')}
+              </div>
               <ul>{extra.map(row)}</ul>
             </>
           )}

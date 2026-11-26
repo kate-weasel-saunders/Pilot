@@ -136,11 +136,13 @@ function Form({ initial, existing }: { initial: Draft; existing: CheckIn | null 
     (draft.events ?? candidates.suggested.map((e) => snapshotOf(e, at, atDate, calendar.ctx))).map((s) => [s.key, s]),
   );
 
-  const toggleEvent = (item: CalendarEvent | EventSnapshot, on: boolean) => {
+  const toggleEvents = (items: (CalendarEvent | EventSnapshot)[], on: boolean) => {
     const next = new Map(selected);
-    const key = 'event_key' in item ? item.event_key : item.key;
-    if (on) next.set(key, 'event_key' in item ? snapshotOf(item, at, atDate, calendar.ctx) : item);
-    else next.delete(key);
+    for (const item of items) {
+      const key = 'event_key' in item ? item.event_key : item.key;
+      if (on) next.set(key, 'event_key' in item ? snapshotOf(item, at, atDate, calendar.ctx) : item);
+      else next.delete(key);
+    }
     setDraft((d) => ({ ...d, events: [...next.values()] }));
   };
 
@@ -261,7 +263,7 @@ function Form({ initial, existing }: { initial: Draft; existing: CheckIn | null 
         localDate={atDate}
         timeZone={draft.timezone}
         kinds={chipsFor('event', tags)}
-        onToggle={toggleEvent}
+        onToggle={toggleEvents}
         onSetKind={(seriesKey, kind) => void saveSeriesPref(seriesKey, { kind })}
         onAddKind={(label) => addCustom('event', label)}
         onSetHidden={(seriesKey, hidden) => void saveSeriesPref(seriesKey, { hidden })}

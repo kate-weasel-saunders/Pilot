@@ -413,6 +413,44 @@ details.more[open] > summary::before {
   margin-top: var(--s-4);
 }
 
+.events-sub-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+.events-sub-head .events-sub {
+  margin-bottom: 0;
+}
+
+.events-bulk-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.events-bulk {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  font-size: var(--text-sm);
+}
+
+.link-button {
+  min-height: var(--touch);
+  padding: 0 var(--s-2);
+  border: 0;
+  background: none;
+  color: var(--accent-strong);
+  font-weight: 650;
+}
+
+.link-button:disabled {
+  color: var(--ink-faint);
+  opacity: 0.6;
+  cursor: default;
+}
+
 .event-row {
   display: grid;
   grid-template-columns: 1fr auto;
